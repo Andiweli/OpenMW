@@ -22,10 +22,12 @@ This project is an **OpenMW Android and ChromeOS port for The Elder Scrolls III:
 The goal is a clean, controller-friendly Morrowind experience on **Android handhelds, tablets, TV devices and ChromeOS** while staying close to the upstream OpenMW engine.
 
 
-| | |
-| :---: | :---: |
-| <img src="https://github.com/Andiweli/OpenMW/blob/main/images/gui-game-settings.png" width=50%> | <img src="https://github.com/Andiweli/OpenMW/blob/main/images/gui-resolution.png" width=50%> |
-| Revised and structured settings | Reworked Resolutions settings |
+| | | |
+| :---: | :---: | :---: |
+| <img src="https://github.com/Andiweli/OpenMW/blob/main/images/gui-game-settings.png" width=60%> | <img src="https://github.com/Andiweli/OpenMW/blob/main/images/gui-resolution.png" width=60%> | <img src="https://github.com/Andiweli/OpenMW/blob/main/images/gui-shadows.png" width=60%> |
+| Revised and structured settings | Reworked Resolutions settings | Integrated Shadow settings and optimizations |
+| <img src="https://github.com/Andiweli/OpenMW/blob/main/images/godrays-lensflares.png" width=60%> | <img src="https://github.com/Andiweli/OpenMW/blob/main/images/landscape-shader-omwfx.png" width=60%> | <img src="https://github.com/Andiweli/OpenMW/blob/main/images/rain-waterpuddles.png" width=60%> |
+| Godrays and lens flares with OMWFX | Bloom, godrays, and lens flares | Puddles and raindrops with OMWFX |
 
 
 ## ⚔️ Highlights
