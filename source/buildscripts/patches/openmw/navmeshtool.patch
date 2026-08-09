@@ -1,0 +1,158 @@
+From ea1d746e75fd64f1d411155d01483f37bce2806b Mon Sep 17 00:00:00 2001
+From: sisah <jirielbunda@seznam.cz>
+Date: Fri, 10 Mar 2023 11:19:03 -0500
+Subject: [PATCH] add navmeshtool hack
+
+---
+ apps/navmeshtool/CMakeLists.txt |  2 +-
+ apps/navmeshtool/main.cpp       |  8 +++++---
+ apps/navmeshtool/navmesh.cpp    |  3 +++
+ apps/navmeshtool/navmesh.hpp    |  2 ++
+ apps/openmw/CMakeLists.txt      |  4 ++++
+ apps/openmw/engine.cpp          |  2 +-
+ apps/openmw/main.cpp            | 14 ++++++++++++++
+ components/debug/debugging.cpp  |  2 +-
+ 8 files changed, 31 insertions(+), 6 deletions(-)
+
+diff --git a/apps/navmeshtool/CMakeLists.txt b/apps/navmeshtool/CMakeLists.txt
+index 9f57d52a7e4..495fa3f47a8 100644
+--- a/apps/navmeshtool/CMakeLists.txt
++++ b/apps/navmeshtool/CMakeLists.txt
+@@ -5,7 +5,7 @@ set(NAVMESHTOOL
+ )
+ source_group(apps\\navmeshtool FILES ${NAVMESHTOOL})
+ 
+-openmw_add_executable(openmw-navmeshtool ${NAVMESHTOOL})
++add_library(openmw-navmeshtool SHARED ${NAVMESHTOOL})
+ 
+ target_link_libraries(openmw-navmeshtool
+     ${Boost_PROGRAM_OPTIONS_LIBRARY}
+diff --git a/apps/navmeshtool/main.cpp b/apps/navmeshtool/main.cpp
+index b93e6cd7c86..fdb183e4a36 100644
+--- a/apps/navmeshtool/main.cpp
++++ b/apps/navmeshtool/main.cpp
+@@ -51,8 +51,8 @@
+ 
+ namespace NavMeshTool
+ {
+-    namespace
+-    {
++//    namespace
++//    {
+         namespace bpo = boost::program_options;
+ 
+         using StringsVector = std::vector<std::string>;
+@@ -261,10 +261,12 @@ namespace NavMeshTool
+ 
+             return 0;
+         }
+-    }
++//    }
+ }
+ 
++/*
+ int main(int argc, char* argv[])
+ {
+     return wrapApplication(NavMeshTool::runNavMeshTool, argc, argv, NavMeshTool::applicationName);
+ }
++*/
+diff --git a/apps/navmeshtool/navmesh.cpp b/apps/navmeshtool/navmesh.cpp
+index 384c9654660..e41a248e6d8 100644
+--- a/apps/navmeshtool/navmesh.cpp
++++ b/apps/navmeshtool/navmesh.cpp
+@@ -53,6 +53,9 @@ namespace NavMeshTool
+             Log(Debug::Info) << provided << "/" << expected << " ("
+                              << (static_cast<double>(provided) / static_cast<double>(expected) * 100)
+                              << "%) navmesh tiles are generated";
++
++            std::string message = std::to_string((static_cast<double>(provided) / static_cast<double>(expected) * 100));
++            setenv("NAVMESHTOOL_MESSAGE", message.c_str(), true);
+         }
+ 
+         template <class T>
+diff --git a/apps/navmeshtool/navmesh.hpp b/apps/navmeshtool/navmesh.hpp
+index 4e607f4f2b0..47282237644 100644
+--- a/apps/navmeshtool/navmesh.hpp
++++ b/apps/navmeshtool/navmesh.hpp
+@@ -24,6 +24,8 @@ namespace NavMeshTool
+     Status generateAllNavMeshTiles(const DetourNavigator::AgentBounds& agentBounds,
+         const DetourNavigator::Settings& settings, std::size_t threadsNumber, bool removeUnusedTiles,
+         bool writeBinaryLog, WorldspaceData& cellsData, DetourNavigator::NavMeshDb&& db);
++
++    int runNavMeshTool(int argc, char *argv[]);
+ }
+ 
+ #endif
+diff --git a/apps/openmw/CMakeLists.txt b/apps/openmw/CMakeLists.txt
+index ff2ecfe5c93..dde84863aa8 100644
+--- a/apps/openmw/CMakeLists.txt
++++ b/apps/openmw/CMakeLists.txt
+@@ -111,6 +111,10 @@ add_openmw_dir (mwbase
+     inputmanager windowmanager statemanager
+     )
+ 
++add_openmw_dir (.
++    ../navmeshtool/main ../navmeshtool/navmesh ../navmeshtool/worldspacedata
++    )
++
+ # Main executable
+ 
+ if (NOT ANDROID)
+diff --git a/apps/openmw/engine.cpp b/apps/openmw/engine.cpp
+index 95119a0c165..d1b431ab103 100644
+--- a/apps/openmw/engine.cpp
++++ b/apps/openmw/engine.cpp
+@@ -466,7 +466,7 @@ void OMW::Engine::setSkipMenu(bool skipMenu, bool newGame)
+ }
+ 
+ // To share the viewer with Android interfaces
+-osg::ref_ptr<osgViewer::Viewer> g_viewer;
++extern osg::ref_ptr<osgViewer::Viewer> g_viewer;
+ 
+ void OMW::Engine::createWindow()
+ {
+diff --git a/apps/openmw/main.cpp b/apps/openmw/main.cpp
+index cc51462322d..a806df6fcd3 100644
+--- a/apps/openmw/main.cpp
++++ b/apps/openmw/main.cpp
+@@ -27,6 +27,9 @@ extern "C" __declspec(dllexport) DWORD AmdPowerXpressRequestHighPerformance = 0x
+ #include <unistd.h>
+ #endif
+ 
++// Android navmeshtool hack
++#include "../navmeshtool/navmesh.hpp"
++
+ using namespace Fallback;
+ 
+ /**
+@@ -242,6 +245,17 @@ int runApplication(int argc, char* argv[])
+     Files::ConfigurationManager cfgMgr;
+     std::unique_ptr<OMW::Engine> engine = std::make_unique<OMW::Engine>(cfgMgr);
+ 
++    // Android navmeshtool hack
++    if ( getenv("OPENMW_GENERATE_NAVMESH_CACHE") )
++    {
++        if(NavMeshTool::runNavMeshTool(argc, argv))
++           Log(Debug::Error) << "runNavMeshTool failed";
++        else
++           Log(Debug::Error) << "runNavMeshTool sucess";
++
++        return 0;
++    }
++
+     if (parseOptions(argc, argv, *engine, cfgMgr))
+     {
+         engine->go();
+diff --git a/components/debug/debugging.cpp b/components/debug/debugging.cpp
+index 40f207fe459..4a37625c675 100644
+--- a/components/debug/debugging.cpp
++++ b/components/debug/debugging.cpp
+@@ -304,7 +304,7 @@ void setupLogging(const std::filesystem::path& logDir, std::string_view appName,
+ #endif
+ }
+ 
+-extern osg::ref_ptr<osgViewer::Viewer> g_viewer;
++osg::ref_ptr<osgViewer::Viewer> g_viewer;
+ 
+ int wrapApplication(int (*innerApplication)(int argc, char* argv[]), int argc, char* argv[], std::string_view appName)
+ {

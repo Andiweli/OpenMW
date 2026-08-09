@@ -1,0 +1,379 @@
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+
+/*
+ * Phase 2 v14 — OpenMW 0.50.0 Final
+ *
+ * Gradle remains build-configuration only: it does NOT rewrite SDL/Java/XML
+ * source files. v12 adds one generated-assets task for the optional OMWFX
+ * post-processing preset.
+ *
+ * The OMWFX source is downloaded once from the same Cody Glassman fork used
+ * by the CaveBros Android successor, cached below project/.gradle, and merged
+ * into the APK under libopenmw/resources/vfs/shaders.
+ */
+
+def openMwVersionCode = 50
+def versionFile = new File(
+        project.rootDir,
+        'app/src/main/assets/libopenmw/resources/version'
+)
+
+def calculateVersion = {
+    def engineVersion = 'openmw-native-not-built'
+
+    if (versionFile.isFile()) {
+        def firstLine = versionFile.readLines().find { line -> !line.trim().isEmpty() }
+        if (firstLine != null) {
+            engineVersion = firstLine.trim()
+        }
+    }
+
+    return "${engineVersion}-${openMwVersionCode}"
+}
+
+// Phase 1 deliberately supports ARM64 only.
+// The original native build creates one ABI at a time; advertising x86/ARM32
+// while only libopenmw.so for ARM64 exists would produce installable but broken APKs.
+def requiredOpenMwPayload = [
+        file('src/main/assets/libopenmw/resources/version'),
+        file('src/main/assets/libopenmw/resources/shaders/compatibility/fullscreen_tri.vert'),
+        file('src/main/assets/libopenmw/resources/shaders/compatibility/shadowcasting.vert'),
+        file('src/main/assets/libopenmw/resources/shaders/compatibility/shadows_fragment.glsl'),
+        file('src/main/assets/libopenmw/openmw/defaults.bin'),
+        file('src/main/assets/libopenmw/openmw/openmw.base.cfg'),
+        file('src/main/assets/libopenmw/openmw/openmw-engine-version.txt'),
+        file('src/main/assets/libopenmw/openmw/gamecontrollerdb.txt'),
+        file('src/main/assets/libopenmw/3rdparty-licenses.txt'),
+
+        file('src/main/jniLibs/arm64-v8a/libopenmw.so'),
+        file('src/main/jniLibs/arm64-v8a/libopenal.so'),
+        file('src/main/jniLibs/arm64-v8a/libSDL2.so'),
+        file('src/main/jniLibs/arm64-v8a/libGL.so'),
+        file('src/main/jniLibs/arm64-v8a/libcollada-dom2.5-dp.so'),
+        file('src/main/jniLibs/arm64-v8a/libc++_shared.so')
+]
+
+tasks.register('verifyOpenMwPayload') {
+    group = 'verification'
+    description = 'Checks that the generated/extracted OpenMW ARM64 runtime payload exists.'
+
+    doLast {
+        def missing = requiredOpenMwPayload.findAll { !it.exists() }
+        if (!missing.isEmpty()) {
+            def relativeMissing = missing.collect {
+                project.rootDir.toPath().relativize(it.toPath()).toString()
+            }.join('\n - ')
+
+            throw new GradleException(
+                    'OpenMW native runtime payload is missing.\n' +
+                    'Build the pinned native engine first with tools\\build-openmw-050-final.ps1.\n\n' +
+                    'Missing files:\n - ' + relativeMissing
+            )
+        }
+
+        def engineMarkerFile = file('src/main/assets/libopenmw/openmw/openmw-engine-version.txt')
+        def engineMarker = engineMarkerFile.getText('UTF-8').replace('\r\n', '\n').trim()
+        def requiredFinalCommit = '47d78e004bc182def2904986f8bb54aea1f4b3ae'
+        def expectedEngineMarker = 'OpenMW 0.50.0 Final\ncommit=' + requiredFinalCommit
+
+        if (engineMarker != expectedEngineMarker) {
+            def printableMarker = engineMarker.replace('\n', ' | ')
+            throw new GradleException(
+                    'The native payload is not the pinned OpenMW 0.50.0 Final engine.\n' +
+                    'Run tools\\finalize-openmw-050-payload.ps1 before assembling the APK.\n' +
+                    'Expected marker: ' + expectedEngineMarker.replace('\n', ' | ') + '\n' +
+                    'Actual marker:   ' + printableMarker
+            )
+        }
+
+        def fullscreenShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/fullscreen_tri.vert').getText('UTF-8')
+        def shadowShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/shadowcasting.vert').getText('UTF-8')
+        def shadowFragmentShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/shadows_fragment.glsl').getText('UTF-8')
+
+        if (fullscreenShader.contains('uniform vec2 scaling =') ||
+                shadowShader.contains('uniform bool useDiffuseMapForShadowAlpha =') ||
+                shadowShader.contains('uniform bool alphaTestShadows =')) {
+            throw new GradleException(
+                    'OpenMW 0.50 Final was built without the Android/GL4ES shader patch.\n' +
+                    'Re-run tools\\prepare-openmw-050-final.ps1 and rebuild the native engine.'
+            )
+        }
+
+        if (!shadowFragmentShader.contains('OPENMW_ANDROID_GLES2_MANUAL_SHADOW_COMPARE') ||
+                shadowFragmentShader.contains('uniform sampler2DShadow') ||
+                shadowFragmentShader.contains('shadow2DProj(')) {
+            throw new GradleException(
+                    'OpenMW 0.50 Final contains a stale GLES2 shadow receiver shader.\n' +
+                    'Re-run tools\\build-openmw-050-final.ps1 before assembling the APK.'
+            )
+        }
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+// OMWFX post-processing package
+// -----------------------------------------------------------------------------
+// Keep third-party shader sources out of this patch ZIP itself. The first build
+// downloads the upstream package once, stores the archive in project/.gradle,
+// then generates an Android asset overlay. A normal `clean` removes only the
+// generated copy; the cached archive remains available for offline rebuilds.
+def omwfxSourceUrl =
+        'https://gitlab.com/glassmancody.info/omwfx-shaders/-/archive/main/omwfx-shaders-main.zip'
+def omwfxCacheDir = new File(rootProject.projectDir, '.gradle/openmw-omwfx')
+def omwfxArchive = new File(omwfxCacheDir, 'omwfx-shaders-main.zip')
+def omwfxGeneratedAssetsDir = new File(buildDir, 'generated/omwfxAssets')
+def omwfxGeneratedVfsDir =
+        new File(omwfxGeneratedAssetsDir, 'libopenmw/resources/vfs')
+
+tasks.register('prepareOmwfxShaders') {
+    group = 'openmw'
+    description = 'Downloads/caches OMWFX and prepares its shaders as generated APK assets.'
+
+    inputs.property('omwfxSourceUrl', omwfxSourceUrl)
+    outputs.dir(omwfxGeneratedAssetsDir)
+
+    doLast {
+        omwfxCacheDir.mkdirs()
+
+        def downloadArchive = {
+            def tempArchive = new File(omwfxCacheDir, 'omwfx-shaders-main.zip.part')
+            tempArchive.delete()
+
+            logger.lifecycle('OpenMW: downloading OMWFX shaders (one-time cache)...')
+            def connection = new URL(omwfxSourceUrl).openConnection()
+            connection.setConnectTimeout(20000)
+            connection.setReadTimeout(120000)
+            connection.setRequestProperty('User-Agent', 'OpenMW-Android-v12')
+
+            connection.getInputStream().withCloseable { input ->
+                tempArchive.withOutputStream { output ->
+                    byte[] buffer = new byte[64 * 1024]
+                    int count
+                    while ((count = input.read(buffer)) >= 0) {
+                        if (count > 0) {
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+            }
+
+            if (!tempArchive.isFile() || tempArchive.length() < 1024) {
+                tempArchive.delete()
+                throw new GradleException(
+                        'OMWFX download produced an invalid archive: ' + omwfxSourceUrl
+                )
+            }
+
+            if (omwfxArchive.exists() && !omwfxArchive.delete()) {
+                tempArchive.delete()
+                throw new GradleException('Could not replace cached OMWFX archive: ' + omwfxArchive)
+            }
+
+            if (!tempArchive.renameTo(omwfxArchive)) {
+                tempArchive.delete()
+                throw new GradleException('Could not finalize cached OMWFX archive: ' + omwfxArchive)
+            }
+        }
+
+        if (!omwfxArchive.isFile() || omwfxArchive.length() < 1024) {
+            downloadArchive()
+        }
+
+        project.delete(omwfxGeneratedAssetsDir)
+        omwfxGeneratedVfsDir.mkdirs()
+
+        def extractArchive = {
+            int extractedFiles = 0
+            int extractedOmwfx = 0
+
+            new java.util.zip.ZipInputStream(
+                    new BufferedInputStream(new FileInputStream(omwfxArchive))
+            ).withCloseable { zip ->
+                java.util.zip.ZipEntry entry
+
+                while ((entry = zip.nextEntry) != null) {
+                    def normalized = entry.name.replace('\\', '/')
+                    def shaderMarker = normalized.indexOf('/shaders/')
+
+                    if (shaderMarker >= 0) {
+                        // Strip the archive's top-level directory but retain the
+                        // complete "shaders/..." tree expected by OpenMW's VFS.
+                        def relative = normalized.substring(shaderMarker + 1)
+
+                        if (!entry.isDirectory()) {
+                            // Avoid duplicate asset paths when OpenMW itself
+                            // already ships a shader/resource with the same name.
+                            def bundledFile =
+                                    file('src/main/assets/libopenmw/resources/vfs/' + relative)
+
+                            if (!bundledFile.exists()) {
+                                def destination = new File(omwfxGeneratedVfsDir, relative)
+                                def canonicalRoot = omwfxGeneratedVfsDir.canonicalFile
+                                def canonicalDestination = destination.canonicalFile
+
+                                if (!canonicalDestination.path.startsWith(
+                                        canonicalRoot.path + File.separator)) {
+                                    throw new GradleException(
+                                            'Unsafe path in OMWFX archive: ' + entry.name
+                                    )
+                                }
+
+                                destination.parentFile.mkdirs()
+                                destination.withOutputStream { output ->
+                                    byte[] buffer = new byte[64 * 1024]
+                                    int count
+                                    while ((count = zip.read(buffer)) > 0) {
+                                        output.write(buffer, 0, count)
+                                    }
+                                }
+
+                                extractedFiles++
+                                if (relative.toLowerCase(Locale.ROOT).endsWith('.omwfx')) {
+                                    extractedOmwfx++
+                                }
+                            }
+                        }
+                    }
+
+                    zip.closeEntry()
+                }
+            }
+
+            if (extractedOmwfx == 0) {
+                throw new GradleException(
+                        'The cached OMWFX archive did not contain any usable .omwfx shaders.'
+                )
+            }
+
+            def marker = new File(omwfxGeneratedVfsDir, 'omwfx-android-preset.txt')
+            marker.text =
+                    'OpenMW Android OMWFX preset v12\n' +
+                    'Source: ' + omwfxSourceUrl + '\n' +
+                    'Generated .omwfx files: ' + extractedOmwfx + '\n' +
+                    'Generated total files: ' + extractedFiles + '\n'
+
+            logger.lifecycle(
+                    "OpenMW: prepared OMWFX assets (${extractedOmwfx} .omwfx files, " +
+                    "${extractedFiles} total generated files)."
+            )
+        }
+
+        try {
+            extractArchive()
+        } catch (Exception firstFailure) {
+            // A stale/corrupt partial cache should never permanently poison
+            // future builds. Re-download once and retry extraction.
+            logger.warn('OpenMW: cached OMWFX archive is unusable; downloading it again.')
+            project.delete(omwfxGeneratedAssetsDir)
+            omwfxArchive.delete()
+            downloadArchive()
+            omwfxGeneratedVfsDir.mkdirs()
+            extractArchive()
+        }
+    }
+}
+
+android {
+    // Keep the historical source namespace for now. It controls generated R and
+    // BuildConfig classes, not the installed Android package/application ID.
+    // Changing it would require unrelated package/import churn across the launcher.
+    namespace 'com.libopenmw.openmw'
+
+    compileSdk 35
+    ndkVersion '26.1.10909125'
+
+    sourceSets {
+        main {
+            resources {
+                srcDir "wrap/res"
+            }
+
+            // Generated by prepareOmwfxShaders. This overlays only additional
+            // VFS shader assets; it never modifies app/src/main/assets.
+            assets.srcDir omwfxGeneratedAssetsDir
+        }
+    }
+
+    defaultConfig {
+        // Canonical package/application ID from Phase 1 v8 onward.
+        applicationId "com.ast.openmw"
+
+        versionCode openMwVersionCode
+        versionName calculateVersion()
+
+        minSdk 21
+
+        // Keep this at 29 for the proof-of-life / legacy game-file access build.
+        // Scoped-storage modernization is a separate step once ChromeOS and Android
+        // behaviour are confirmed with the new app-specific user-data directory.
+        targetSdk 29
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    lint {
+        checkReleaseBuilds false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+
+        debug {
+            // Deliberately no applicationIdSuffix. Debug and release both use
+            // com.ast.openmw, so Android gives both the same app-specific data path.
+            debuggable true
+        }
+    }
+
+    // Keep the historical Mainline task name so the existing Android Studio / CLI
+    // workflow stays unchanged, but remove the obsolete Nightly flavor completely.
+    flavorDimensions += "version"
+
+    productFlavors {
+        mainline {
+            dimension "version"
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('verifyOpenMwPayload')
+    dependsOn tasks.named('prepareOmwfxShaders')
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.3.1'
+    implementation 'com.google.android.material:material:1.4.0'
+    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+
+    implementation project(':storagechooser')
+
+    implementation 'com.bugsnag:bugsnag-android-ndk:4.22.3'
+
+    testImplementation 'junit:junit:4.13.2'
+}

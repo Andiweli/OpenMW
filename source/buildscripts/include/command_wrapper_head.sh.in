@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Head: Preprocessed by build.sh
+
+export PKG_CONFIG_LIBDIR="$DIR/prefix/$ARCH/lib/pkgconfig"
+export CC="$NDK_TRIPLET-clang"
+export CXX="$NDK_TRIPLET-clang++"
+export PATH="$DIR/toolchain/$ARCH/bin/:$DIR/toolchain/ndk/:$PATH"
+
+export CFLAGS="$ENV_CFLAGS"
+export CXXFLAGS="$ENV_CXXFLAGS"
+export LDFLAGS="$ENV_LDFLAGS"

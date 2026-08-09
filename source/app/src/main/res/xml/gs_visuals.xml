@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="Terrain">
+
+        <Preference
+            android:key="gs_object_paging_min_size"
+            android:title="Object Paging Min Size"
+            android:summary="Controls how large an object must be to be visible in the scene. Adjustable from 0.01 to 1.00 in steps of 0.01." />
+
+        <CheckBoxPreference
+            android:key="gs_distant_land"
+            android:title="Distant Land"
+            android:summary="If true, use paging and LOD algorithms to display the entire terrain. If false, only display terrain of the loaded cells."/>
+
+        <CheckBoxPreference
+            android:key="gs_active_grid_object_paging"
+            android:title="Active Grid Object Paging"
+            android:defaultValue="true"
+            android:summary="Use object paging for active cells grid."/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Graphics">
+<!--
+        <ListPreference
+            android:key="gs_antialiasing"
+            android:summary="%s"
+            android:title="Antialiasing"
+            android:dialogTitle="Antialiasing"
+            android:entries="@array/gs_antialiasing_entries"
+            android:entryValues="@array/gs_antialiasing_values"
+            android:defaultValue="0" />
+-->
+        <ListPreference
+            android:key="pref_physicsFPS2"
+            android:title="@string/pref_physicsFPS2"
+            android:dialogTitle="@string/pref_physicsFPS2"
+            android:entries="@array/pref_physicsFPS2_entries"
+            android:entryValues="@array/pref_physicsFPS2_entries"
+            android:defaultValue="@string/pref_physicsFPS2_default"
+            android:summary="%s FPS"/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Shaders">
+
+        <CheckBoxPreference
+            android:key="gs_auto_use_object_normal_maps"
+            android:title="Auto Use Objects Normal Maps"
+            android:summary="If this option is enabled, normal maps are automatically recognized and used if they are named appropriately (see 'normal map pattern', e.g. for a base texture foo.dds, the normal map texture would have to be named foo_n.dds). If this option is disabled, normal maps are only used if they are explicitly listed within the mesh file (.nif or .osg file). Affects objects"/>
+
+        <CheckBoxPreference
+            android:key="gs_auto_use_object_specular_maps"
+            android:title="Auto Use Objects Specular Maps"
+            android:summary="If this option is enabled, specular maps are automatically recognized and used if they are named appropriately (see 'specular map pattern', e.g. for a base texture foo.dds, the specular map texture would have to be named foo_spec.dds). If this option is disabled, normal maps are only used if they are explicitly listed within the mesh file (.osg file, not supported in .nif files). Affects objects."/>
+
+        <CheckBoxPreference
+            android:key="gs_auto_use_terrain_normal_maps"
+            android:title="Auto Use Terrain Normal Maps"
+            android:summary="See 'auto use object normal maps'. Affects terrain."/>
+
+        <CheckBoxPreference
+            android:key="gs_auto_use_terrain_specular_maps"
+            android:title="Auto Use Terrain Specular Maps"
+            android:summary="If a file with pattern 'terrain specular map pattern' exists, use that file as a 'diffuse specular' map. The texture must contain the layer colour in the RGB channel (as usual), and a specular multiplier in the alpha channel."/>
+
+        <CheckBoxPreference
+            android:key="gs_bump_map_local_lighting"
+            android:title="Bump/Reflect Map Local Lighting"
+            android:summary="Normally environment map reflections aren't affected by lighting, which makes environment-mapped (and thus bump-mapped objects) glow in the dark. Morrowind Code Patch includes an option to remedy that by doing environment-mapping before applying lighting, this is the equivalent of that option. Affected objects will use shaders."/>
+
+<!--
+        <CheckBoxPreference
+            android:key="gs_soft_particles"
+            android:title="Soft Particles"
+            android:summary="Enables soft particles for particle effects. This technique softens the intersection between individual particles and other opaque geometry by blending between them."/>
+-->
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Fog">
+
+        <CheckBoxPreference
+            android:key="gs_radial_fog"
+            android:title="Radial Fog"
+            android:summary="By default, the fog becomes thicker proportionally to your distance from the clipping plane set at the clipping distance, which causes distortion at the edges of the screen. This setting makes the fog use the actual eye point distance (or so called Euclidean distance) to calculate the fog, which makes the fog look less artificial, especially if you have a wide FOV."/>
+
+        <CheckBoxPreference
+            android:key="gs_exponential_fog"
+            android:title="Exponential Fog"
+            android:summary="Whether to use exponential formula for fog."/>
+
+        <CheckBoxPreference
+            android:key="gs_sky_blending"
+            android:title="Sky Blending"
+            android:summary="Whether to hide the clipping plane by blending with sky."/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Post Processing">
+
+        <CheckBoxPreference
+            android:key="gs_soft_particles"
+            android:title="Soft Particles"
+            android:summary="Soften intersection of blended particle systems with opaque geometry."/>
+
+        <CheckBoxPreference
+            android:key="gs_transparent_postpass"
+            android:title="Transparent Postpass"
+            android:summary="Transparent depth postpass. Re-renders transparent objects with alpha-clipping forced with a fixed threshold."/>
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

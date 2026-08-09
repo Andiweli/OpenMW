@@ -1,0 +1,22 @@
+--- a/src/osg/Texture.cpp
++++ b/src/osg/Texture.cpp
+@@ -2201,6 +2201,7 @@ void Texture::applyTexParameters(GLenum target, State& state) const
+         (target == GL_TEXTURE_2D || target == GL_TEXTURE_1D || target == GL_TEXTURE_RECTANGLE || target == GL_TEXTURE_CUBE_MAP || target == GL_TEXTURE_2D_ARRAY ) &&
+         _internalFormatType != SIGNED_INTEGER && _internalFormatType != UNSIGNED_INTEGER)
+     {
++#if !defined(ANDROID) && !defined(__ANDROID__)
+         if (_use_shadow_comparison)
+         {
+             glTexParameteri(target, GL_TEXTURE_COMPARE_MODE_ARB, GL_COMPARE_R_TO_TEXTURE_ARB);
+@@ -2221,6 +2222,11 @@ void Texture::applyTexParameters(GLenum target, State& state) const
+         {
+             glTexParameteri(target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE);
+         }
++#else
++        // OPENMW_ANDROID_GLES2_MANUAL_SHADOW_COMPARE
++        // GLES2 has no desktop ARB shadow-compare texture state. OpenMW samples
++        // OES depth textures normally and performs the comparison in GLSL.
++#endif
+     }
+     // if range is valid
+     if( _maxlod - _minlod >= 0)

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#212121</color>
+    <color name="colorPrimaryDark">#999999</color>
+    <color name="colorAccent">#FF4081</color>
+
+    <color name="modItemBackgroundColor">#404040</color>
+    <color name="modItemSelectedColor">#212121</color>
+    <color name="modItemTextColor">#FFFFFF</color>
+
+    <color name="statusBarColor">#000000</color>
+
+    <!-- Storage Chooser -->
+    <array name="default_light">
+        <!-- Overview -->
+        <item>#121212</item> <!--  Top Header bg -->
+        <item>@android:color/white</item> <!-- header text   -->
+        <item>#212121</item> <!-- list bg  -->
+        <item>@android:color/white</item> <!--  storage list name text  -->
+        <item>#da6c6c</item> <!-- free space text  -->
+        <item>#999999</item> <!-- memory bar -->
+
+        <!-- secondary dialog colors -->
+        <item>#ffae42</item> <!-- folder icon color -->
+        <item>#414141</item> <!-- list bg -->
+        <item>@android:color/white</item> <!-- list text -->
+        <item>@android:color/white</item> <!-- address bar text color -->
+        <item>@color/chevronBgColor</item> <!-- new folder hint tint -->
+        <item>@color/colorAccent</item> <!-- select button color -->
+        <item>#404040</item> <!-- new folder layour bg -->
+        <item>#ff0000</item> <!-- new multi fab -->
+        <item>#000000</item> <!-- new multi fab -->
+    </array>
+</resources>

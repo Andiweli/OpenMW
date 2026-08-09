@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+        android:key="general_settings"
+        android:title="@string/general_settings">
+
+        <ListPreference
+            android:key="pref_encoding"
+            android:summary="%s"
+            android:title="@string/pref_encoding"
+            android:dialogTitle="@string/pref_encoding"
+            android:entries="@array/pref_encoding_entries"
+            android:entryValues="@array/pref_encoding_values"
+            android:defaultValue="@string/pref_encoding_default"
+            />
+
+        <Preference
+            android:key="game_files"
+            android:title="@string/game_files"
+            />
+
+        <Preference
+            android:key="pref_game_settings"
+            android:title="Game Settings"
+            />
+
+        <Preference
+            android:title="@string/mods"
+            android:key="pref_mods"
+            />
+    </PreferenceCategory>
+
+
+    <PreferenceCategory android:title="@string/pref_ui">
+        <Preference
+            android:title="@string/action_show_screen_controls"
+            android:key="pref_controls"
+            />
+
+        <EditTextPreference
+            android:key="pref_uiScaling"
+            android:title="@string/pref_uiScaling"
+            android:dialogTitle="@string/pref_uiScaling"
+            android:inputType="numberDecimal"
+            android:hint="1.5"
+            />
+
+        <ListPreference
+            android:key="pref_mouse_mode"
+            android:title="@string/pref_mouse_mode"
+            android:dialogTitle="@string/pref_mouse_mode"
+            android:entries="@array/pref_mouse_mode_entries"
+            android:entryValues="@array/pref_mouse_mode_values"
+            android:defaultValue="@string/pref_mouse_mode_default"
+            android:summary="%s"
+            />
+
+        <CheckBoxPreference
+            android:key="pref_hide_controls"
+            android:title="@string/pref_hide_controls" />
+
+        <CheckBoxPreference
+            android:key="pref_always_show_top_bar"
+            android:title="@string/pref_always_show_top_bar" />
+
+        <CheckBoxPreference
+            android:key="pref_show_qp"
+            android:title="@string/pref_show_qp" />
+
+        <CheckBoxPreference
+            android:key="pref_show_fn"
+            android:title="@string/pref_show_fn" />
+
+        <CheckBoxPreference
+            android:key="pref_screen_keeper"
+            android:title="@string/pref_screen_keeper"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_performance">
+        <ListPreference
+            android:key="pref_physicsFPS2"
+            android:title="@string/pref_physicsFPS2"
+            android:dialogTitle="@string/pref_physicsFPS2"
+            android:entries="@array/pref_physicsFPS2_entries"
+            android:entryValues="@array/pref_physicsFPS2_entries"
+            android:defaultValue="@string/pref_physicsFPS2_default"
+            android:summary="%s"
+            />
+
+        <CheckBoxPreference
+            android:key="pref_nohighp"
+            android:title="@string/pref_nohighp"/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_graphics">
+        <EditTextPreference
+            android:key="pref_customResolution"
+            android:title="@string/pref_customResolution"
+            android:dialogTitle="@string/pref_customResolution"
+            android:hint="640x480"
+            />
+
+        <CheckBoxPreference
+            android:key="pref_display_cutout_area"
+            android:title="@string/pref_display_cutout_area" />
+
+        <EditTextPreference
+            android:key="pref_gamma"
+            android:title="@string/pref_gamma"
+            android:dialogTitle="@string/pref_gamma"
+            android:inputType="numberDecimal"
+            android:hint="1.0"
+            />
+
+        <ListPreference
+            android:key="pref_textureShrinking_v2"
+            android:title="@string/pref_textureShrinking"
+            android:dialogTitle="@string/pref_textureShrinking"
+            android:entries="@array/pref_textureShrinking_entries"
+            android:entryValues="@array/pref_textureShrinking_values"
+            android:defaultValue="@string/pref_textureShrinking_default"
+            android:summary="%s"
+        />
+
+        <ListPreference
+            android:key="pref_shadersDir_v2"
+            android:title="@string/pref_shadersDir"
+            android:dialogTitle="@string/pref_shadersDir"
+            android:entries="@array/pref_shadersDir_entries"
+            android:entryValues="@array/pref_shadersDir_values"
+            android:defaultValue="@string/pref_shadersDir_default"
+            android:summary="%s"
+        />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="OpenMW 0.50 - Controls">
+        <CheckBoxPreference
+            android:key="pref_omw050_controller_menus"
+            android:title="Controller Menus"
+            android:summary="Use OpenMW 0.50 gamepad-optimized menu navigation."
+            android:defaultValue="false" />
+
+        <CheckBoxPreference
+            android:key="pref_omw050_controller_tooltips"
+            android:title="Controller Tooltips"
+            android:summary="Always show item tooltips without pressing R3."
+            android:defaultValue="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="OpenMW 0.50 - Audio">
+        <CheckBoxPreference
+            android:key="pref_omw050_doppler"
+            android:title="Doppler Effect"
+            android:summary="Enable OpenMW 0.50 positional-audio Doppler effect (factor 0.25)."
+            android:defaultValue="true" />
+
+        <CheckBoxPreference
+            android:key="pref_omw050_camera_listener"
+            android:title="Camera as Audio Listener"
+            android:summary="Use the camera position instead of the player as the 3D audio listener."
+            android:defaultValue="false" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/pref_advanced">
+        <EditTextPreference
+            android:key="commandLine"
+            android:title="@string/pref_commandLine"
+            />
+
+        <EditTextPreference
+            android:key="envLine"
+            android:title="@string/pref_envLine"
+            />
+        
+        <ListPreference
+            android:key="pref_graphicsLibrary_v2"
+            android:title="@string/pref_graphicsLibrary"
+            android:dialogTitle="@string/pref_graphicsLibrary"
+            android:entries="@array/pref_graphicsLibrary_entries"
+            android:entryValues="@array/pref_graphicsLibrary_values"
+            android:defaultValue="@string/pref_graphicsLibrary_default"
+            android:summary="%s"
+        />
+        
+    </PreferenceCategory>
+
+</PreferenceScreen>

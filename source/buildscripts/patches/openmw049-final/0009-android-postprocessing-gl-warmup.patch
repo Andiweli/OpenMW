@@ -1,0 +1,173 @@
+diff --git a/apps/openmw/mwrender/postprocessor.cpp b/apps/openmw/mwrender/postprocessor.cpp
+--- a/apps/openmw/mwrender/postprocessor.cpp
++++ b/apps/openmw/mwrender/postprocessor.cpp
+@@ -52,6 +52,25 @@ namespace
+         MWRender::PostProcessor* mPostProcessor;
+     };
+ 
++#ifdef ANDROID
++    class AndroidPostProcessingStartupDrawCallback : public osg::Camera::DrawCallback
++    {
++    public:
++        explicit AndroidPostProcessingStartupDrawCallback(MWRender::PostProcessor* postProcessor)
++            : mPostProcessor(postProcessor)
++        {
++        }
++
++        void operator()(osg::RenderInfo&) const override
++        {
++            mPostProcessor->signalAndroidPostProcessingWarmupDraw();
++        }
++
++    private:
++        MWRender::PostProcessor* mPostProcessor;
++    };
++#endif
++
+     class HUDCullCallback : public SceneUtil::NodeCallback<HUDCullCallback, osg::Camera*, osgUtil::CullVisitor*>
+     {
+     public:
+@@ -198,17 +217,19 @@ namespace MWRender
+ 
+ #ifdef ANDROID
+-        // Android can resize the SDL surface while OpenMW is already starting
+-        // (for example when switching from the inset drawable to fullscreen).
+-        // Building the user post-processing chain before the first real cull
+-        // can therefore leave GL4ES ping-pong FBO state tied to a transitional
+-        // drawable. Defer only the first chain reload; after one live cull the
+-        // next update traversal rebuilds it against the actual viewport.
++        // A valid cull viewport is not enough on Android/GL4ES: the graphics
++        // context can already have its final size while the first post-process
++        // GL objects are still being realized. A normal in-game OFF -> ON cycle
++        // works because at least one real draw completes with post-processing
++        // disabled before the chain is rebuilt. Reproduce that lifecycle
++        // deterministically without changing the persisted setting.
+         if (mUsePostProcessing)
+         {
+-            // Keep isEnabled() truthful from startup. Only delay the first
+-            // chain reload until a real frame has established the viewport.
+             mReload = false;
+-            mDeferredAndroidPostProcessingEnable = true;
++            mUsePostProcessing = false;
++            mAndroidPostProcessingStartupPending.store(true, std::memory_order_release);
++            mAndroidPostProcessingWarmupDrawComplete.store(false, std::memory_order_release);
++            mHUDCamera->setFinalDrawCallback(new AndroidPostProcessingStartupDrawCallback(this));
++            Log(Debug::Info) << "Android post-processing startup: waiting for one completed GL draw";
+         }
+ #else
+         if (mUsePostProcessing)
+@@ -262,11 +283,21 @@ namespace MWRender
+     void PostProcessor::disable()
+     {
+ #ifdef ANDROID
+-        mDeferredAndroidPostProcessingEnable = false;
++        mAndroidPostProcessingStartupPending.store(false, std::memory_order_release);
++        mAndroidPostProcessingWarmupDrawComplete.store(false, std::memory_order_release);
+ #endif
+         mUsePostProcessing = false;
+         mRendering.getSkyManager()->setSunglare(true);
+     }
++
++#ifdef ANDROID
++    void PostProcessor::signalAndroidPostProcessingWarmupDraw()
++    {
++        if (mAndroidPostProcessingStartupPending.load(std::memory_order_acquire))
++            mAndroidPostProcessingWarmupDrawComplete.store(true, std::memory_order_release);
++    }
++#endif
++
+     void PostProcessor::traverse(osg::NodeVisitor& nv)
+     {
+         size_t frameId = nv.getTraversalNumber() % 2;
+@@ -324,26 +351,6 @@ namespace MWRender
+                     }
+             }
+         }
+-
+-#ifdef ANDROID
+-        if (mDeferredAndroidPostProcessingEnable)
+-        {
+-            const osg::Viewport* viewport = cv->getViewport();
+-            if (viewport && viewport->width() > 0.0 && viewport->height() > 0.0)
+-            {
+-                // Do not resize or rebuild FBOs during the cull traversal.
+-                // Only store the live size and arm enable(); reloadIfRequired()
+-                // will rebuild the complete chain safely during the next update.
+-                setRenderTargetSize(
+-                    static_cast<int>(viewport->width()), static_cast<int>(viewport->height()));
+-                mDeferredAndroidPostProcessingEnable = false;
+-                enable();
+-
+-                Log(Debug::Info) << "Android post-processing startup deferred until live viewport "
+-                                 << mWidth << "x" << mHeight;
+-            }
+-        }
+-#endif
+     }
+     void PostProcessor::updateLiveReload()
+     {
+@@ -356,6 +367,32 @@ namespace MWRender
+ 
+         updateLiveReload();
+ 
++#ifdef ANDROID
++        if (mAndroidPostProcessingStartupPending.load(std::memory_order_acquire)
++            && mAndroidPostProcessingWarmupDrawComplete.exchange(false, std::memory_order_acq_rel))
++        {
++            // The final-draw callback proves that OSG/GL4ES has completed an
++            // actual render pass on the live context. Use the camera viewport
++            // now, not the early GraphicsContext traits from construction.
++            if (const osg::Viewport* viewport = mViewer->getCamera()->getViewport())
++            {
++                const int width = static_cast<int>(viewport->width());
++                const int height = static_cast<int>(viewport->height());
++                if (width > 0 && height > 0)
++                    setRenderTargetSize(width, height);
++            }
++
++            mAndroidPostProcessingStartupPending.store(false, std::memory_order_release);
++
++            // From here on use the exact same OpenMW path as a successful
++            // manual re-enable: enable() -> reloadIfRequired() -> loadChain()
++            // -> resize(), but only after the first completed GL draw.
++            enable();
++            Log(Debug::Info) << "Android post-processing startup: GL warm-up complete, rebuilding chain at "
++                             << mWidth << "x" << mHeight;
++        }
++#endif
++
+         reloadIfRequired();
+         mCanvases[frameId]->setNodeMask(~0u);
+         mCanvases[!frameId]->setNodeMask(0);
+diff --git a/apps/openmw/mwrender/postprocessor.hpp b/apps/openmw/mwrender/postprocessor.hpp
+--- a/apps/openmw/mwrender/postprocessor.hpp
++++ b/apps/openmw/mwrender/postprocessor.hpp
+@@ -2,6 +2,7 @@
+ #define OPENMW_MWRENDER_POSTPROCESSOR_H
+ 
+ #include <array>
++#include <atomic>
+ #include <string>
+ #include <unordered_map>
+ #include <vector>
+@@ -191,6 +192,10 @@ namespace MWRender
+         void loadChain();
+         void saveChain();
+ 
++#ifdef ANDROID
++        void signalAndroidPostProcessingWarmupDraw();
++#endif
++
+     private:
+         void populateTechniqueFiles();
+ 
+@@ -229,7 +234,8 @@ namespace MWRender
+         bool mTriggerShaderReload = false;
+         bool mUsePostProcessing = false;
+ #ifdef ANDROID
+-        bool mDeferredAndroidPostProcessingEnable = false;
++        std::atomic_bool mAndroidPostProcessingStartupPending{ false };
++        std::atomic_bool mAndroidPostProcessingWarmupDrawComplete{ false };
+ #endif
+ 
+         bool mUBO = false;

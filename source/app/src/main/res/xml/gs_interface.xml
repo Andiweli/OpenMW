@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="UI">
+        <ListPreference
+            android:key="gs_show_owned"
+            android:summary="%s"
+            android:title="Show Owned"
+            android:dialogTitle="Show Owned"
+            android:entries="@array/gs_show_owned_entries"
+            android:entryValues="@array/gs_show_owned_values"
+            android:defaultValue="0" />
+
+        <CheckBoxPreference
+            android:key="gs_show_effect_duration"
+            android:title="Show Effects Duration"
+            android:summary="how the remaining duration of magic effects and lights if this setting is true. The remaining duration is displayed in the tooltip by hovering over the magical effect."/>
+
+        <CheckBoxPreference
+            android:key="gs_show_enchant_chance"
+            android:title="Show Enchant Chance"
+            android:summary="Whether or not the chance of success will be displayed in the enchanting menu."/>
+
+        <CheckBoxPreference
+            android:key="gs_show_melee_info"
+            android:title="Show Melee Info"
+            android:summary="If this setting is true, melee weapons reach and speed will be shown on item tooltip."/>
+
+        <CheckBoxPreference
+            android:key="gs_show_projectile_damage"
+            android:title="Show Projectile Damage"
+            android:summary="If this setting is true, damage bonus of arrows and bolts will be shown on item tooltip."/>
+
+        <CheckBoxPreference
+            android:key="gs_change_dialogue_topic_color"
+            android:title="Change Dialogue Topic Color"
+            android:summary="If this setting is true, dialogue topics will have a different color if the topic is specific to the NPC you're talking to or the topic was previously seen. Color can be changed in settings.cfg."/>
+
+        <CheckBoxPreference
+            android:key="gs_stretch_menu_background"
+            android:title="Stretch Menu Background"
+            android:summary="Stretch menus, load screens, etc. to the window aspect ratio."/>
+
+        <CheckBoxPreference
+            android:key="gs_can_zoom_on_maps"
+            android:title="Can Zoom on Maps"
+            android:summary="Enable zooming on local and global maps."/>
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

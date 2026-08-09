@@ -1,0 +1,39 @@
+diff --git a/components/sceneutil/mwshadowtechnique.cpp b/components/sceneutil/mwshadowtechnique.cpp
+--- a/components/sceneutil/mwshadowtechnique.cpp
++++ b/components/sceneutil/mwshadowtechnique.cpp
+@@ -1736,10 +1736,19 @@ void MWShadowTechnique::createShaders()
+     _shadowCastingStateSet->addUniform(new osg::Uniform("alphaTestShadows", false));
+     osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+     depth->setWriteMask(true);
++#ifndef ANDROID
+     osg::ref_ptr<osg::ClipControl> clipcontrol = new osg::ClipControl(osg::ClipControl::LOWER_LEFT, osg::ClipControl::NEGATIVE_ONE_TO_ONE);
+     _shadowCastingStateSet->setAttribute(clipcontrol, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
++#endif
+     _shadowCastingStateSet->setAttribute(depth, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
++#ifndef ANDROID
+     _shadowCastingStateSet->setMode(GL_DEPTH_CLAMP, osg::StateAttribute::ON);
++#else
++    // Android/GL4ES exposes neither GL_ARB_clip_control nor GL_DEPTH_CLAMP on
++    // the GLES2 backend used by this port. The Android shadow-casting vertex
++    // shader clamps clip-space Z explicitly, so neither desktop-only state is
++    // required here.
++#endif
+ 
+     // TODO: compare performance when alpha testing is handled here versus using a discard in the fragment shader
+ }
+diff --git a/files/shaders/compatibility/shadowcasting.vert b/files/shaders/compatibility/shadowcasting.vert
+--- a/files/shaders/compatibility/shadowcasting.vert
++++ b/files/shaders/compatibility/shadowcasting.vert
+@@ -12,6 +12,12 @@ uniform bool alphaTestShadows;
+ void main(void)
+ {
+     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
++
++    // Android/GL4ES fallback for GL_DEPTH_CLAMP. Cascaded shadow rendering in
++    // OpenMW enables GL_DEPTH_CLAMP, but the GLES2 backend does not expose it.
++    // Clamp clip-space Z explicitly so shadow casters are not discarded at the
++    // shadow camera near/far planes on Android.
++    gl_Position.z = clamp(gl_Position.z, -gl_Position.w, gl_Position.w);
+ 
+     vec4 viewPos = (gl_ModelViewMatrix * gl_Vertex);
+     gl_ClipVertex = viewPos;

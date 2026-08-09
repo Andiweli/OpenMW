@@ -1,0 +1,64 @@
+diff --git a/apps/openmw/engine.cpp b/apps/openmw/engine.cpp
+index 92483bd8c3..77fc0c6698 100644
+--- a/apps/openmw/engine.cpp
++++ b/apps/openmw/engine.cpp
+@@ -457,6 +457,9 @@ void OMW::Engine::setSkipMenu(bool skipMenu, bool newGame)
+     mNewGame = newGame;
+ }
+ 
++// To share the viewer with Android interfaces
++osg::ref_ptr<osgViewer::Viewer> g_viewer;
++
+ void OMW::Engine::createWindow()
+ {
+     const int screen = Settings::video().mScreen;
+@@ -661,6 +664,9 @@ void OMW::Engine::createWindow()
+ 
+     mViewer->getEventQueue()->getCurrentEventState()->setWindowRectangle(
+         0, 0, graphicsWindow->getTraits()->width, graphicsWindow->getTraits()->height);
++
++    // To share the viewer with Android interfaces
++    g_viewer = mViewer;
+ }
+ 
+ void OMW::Engine::setWindowIcon()
+@@ -1040,6 +1046,8 @@ void OMW::Engine::go()
+ 
+     mLuaWorker->join();
+ 
++    g_viewer.release();
++
+     // Save user settings
+     Settings::Manager::saveUser(mCfgMgr.getUserConfigPath() / "settings.cfg");
+     Settings::ShaderManager::get().save();
+diff --git a/components/debug/debugging.cpp b/components/debug/debugging.cpp
+index 3be977657a..6c3dd611bf 100644
+--- a/components/debug/debugging.cpp
++++ b/components/debug/debugging.cpp
+@@ -34,6 +34,8 @@
+ 
+ #include <SDL_messagebox.h>
+ 
++#include <osgViewer/Viewer>
++
+ namespace Debug
+ {
+ #ifdef _WIN32
+@@ -323,6 +325,8 @@ void setupLogging(const std::filesystem::path& logDir, std::string_view appName,
+ #endif
+ }
+ 
++extern osg::ref_ptr<osgViewer::Viewer> g_viewer;
++
+ int wrapApplication(int (*innerApplication)(int argc, char* argv[]), int argc, char* argv[], std::string_view appName)
+ {
+ #if defined _WIN32
+@@ -362,6 +366,8 @@ int wrapApplication(int (*innerApplication)(int argc, char* argv[]), int argc, c
+     }
+     catch (const std::exception& e)
+     {
++        g_viewer.release();
++
+ #if (defined(__APPLE__) || defined(__linux) || defined(__unix) || defined(__posix))
+         if (!isatty(fileno(stdin)))
+ #endif

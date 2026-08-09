@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <Preference
+        android:key="game_settings_game_mechanics"
+        android:title="Gameplay" />
+
+    <Preference
+        android:key="game_settings_visuals"
+        android:title="Visuals" />
+
+    <Preference
+        android:key="game_settings_shadows"
+        android:title="Shadows" />
+
+    <Preference
+        android:key="game_settings_animations"
+        android:title="Animations" />
+
+    <Preference
+        android:key="game_settings_interface"
+        android:title="Interface" />
+
+    <Preference
+        android:key="game_settings_engine"
+        android:title="Engine" />
+
+</PreferenceScreen>

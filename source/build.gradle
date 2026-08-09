@@ -1,0 +1,30 @@
+// Phase 1 v2 bridge for Android Studio 2025.
+// Goal: build the existing CaveBros OpenMW-Android snapshot first.
+// The OpenMW engine revision itself is intentionally unchanged.
+
+buildscript {
+    ext.kotlin_version = '1.9.24'
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.7.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'idea'
+
+idea.module {
+    excludeDirs += file('buildscripts/')
+}

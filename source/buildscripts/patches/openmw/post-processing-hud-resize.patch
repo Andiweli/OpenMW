@@ -1,0 +1,22 @@
+From 29265739cd050e5d284d9a17581d3a3f52680dd3 Mon Sep 17 00:00:00 2001
+From: Duron27 <duron27@gmail.com>
+Date: Wed, 6 Mar 2024 21:14:37 -0500
+Subject: [PATCH] Update openmw_postprocessor_hud.layout
+
+---
+ files/data/mygui/openmw_postprocessor_hud.layout | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/files/data/mygui/openmw_postprocessor_hud.layout b/files/data/mygui/openmw_postprocessor_hud.layout
+index 4ed8ecdb36a..afdeef5e969 100644
+--- a/files/data/mygui/openmw_postprocessor_hud.layout
++++ b/files/data/mygui/openmw_postprocessor_hud.layout
+@@ -3,7 +3,7 @@
+   <Widget type="Window" skin="MW_Window" position="0 0 500 500" layer="Debug" name="_Main" align="Stretch">
+     <Property key="Visible" value="false"/>
+     <Property key="Caption" value="#{OMWShaders:PostProcessHUD}"/>
+-    <Property key="MinSize" value="600 600"/>
++    <Property key="MinSize" value="600 400"/>
+ 
+     <Widget type="TabControl" skin="TabControl_NoBorder" position="8 8 468 450" align="Stretch" name="TabControl">
+         <Property key="ButtonAutoWidth" value="true"/>

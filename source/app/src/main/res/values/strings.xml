@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenMW</string>
+
+    <string-array name="pref_encoding_entries">
+        <item>Central and Eastern European (win1250)</item>
+        <item>Cyrillic (win1251)</item>
+        <item>Latin (win1252)</item>
+    </string-array>
+
+    <string-array name="pref_encoding_values">
+        <item>win1250</item>
+        <item>win1251</item>
+        <item>win1252</item>
+    </string-array>
+    <string-array name="gs_factor_strength_into_hand_to_hand_combat_entries">
+        <item>Off</item>
+        <item>Affect Werewolwes</item>
+        <item>Do Not Affect Werewolwes</item>
+    </string-array>
+
+    <string-array name="gs_factor_strength_into_hand_to_hand_combat_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+    <string-array name="gs_show_owned_entries">
+        <item>Off</item>
+        <item>Tool Tip Only</item>
+        <item>Crosshair Only</item>
+        <item>Tool Tip and Crosshair</item>
+    </string-array>
+
+    <string-array name="gs_show_owned_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+    <string-array name="gs_antialiasing_entries">
+        <item>0</item>
+        <item>2</item>
+        <item>4</item>
+        <item>8</item>
+        <item>16</item>
+    </string-array>
+
+    <string-array name="gs_antialiasing_values">
+        <item>0</item>
+        <item>2</item>
+        <item>4</item>
+        <item>8</item>
+        <item>16</item>
+    </string-array>
+    <string-array name="gs_groundcover_handling_entries">
+        <item>Off</item>
+        <item>Paging</item>
+        <item>Instancing</item>
+    </string-array>
+
+    <string-array name="gs_groundcover_handling_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+    <string name="general_settings">Setup</string>
+    <string name="start_game_label">Start game</string>
+    <string name="closeDrawer">Navigation View</string>
+    <string name="openDrawer">Navigation View Closed</string>
+    <string name="game_files">Game Datafiles</string>
+    <!-- Graphics library -->
+    <string name="pref_graphicsLibrary">Graphics API Library</string>
+    <string name="pref_graphicsLibrary_default">gles2</string>
+    <string name="pref_advanced">Advanced</string>
+    <string name="pref_graphics">Graphics</string>
+    <string name="pref_commandLine">Custom Commandline Arguments</string>
+    <string name="pref_envLine">Custom Environment Flags</string>
+    <string name="pref_nohighp">Medium shader precision</string>
+    <string name="pref_ui">User Interface</string>
+    <string name="pref_textureShrinking">Texture Shrinking</string>
+    <string name="pref_textureShrinking_default">none</string>
+    <string name="pref_shadersDir">Shader Presets</string>
+    <string name="pref_shadersDir_default">none</string>
+    <string name="pref_gamma">Gamma</string>
+    <string name="pref_uiScaling">UI Scaling-Factor</string>
+    <string name="uiScaling_auto">Auto (%1$.2f)</string>
+    <string name="pref_screen_keeper">Keep Screen always-on</string>
+    <string name="pref_touchpadSensitivity">Virtual touchpad sensitivity</string>
+    <string name="action_reset_config">Reset static configuration files</string>
+    <string name="action_reset_user_config">Reset user configuration files</string>
+    <string name="action_reset_user_resources">Reset user resources</string>
+    <string name="action_reset_screen_controls">Reset on-screen controls</string>
+    <string name="action_show_screen_controls">On-Screen Controls</string>
+    <string name="pref_hide_controls">Hide On-Screen Buttons</string>
+    <string name="config_was_reset">Static configuration was reset to default values</string>
+    <string name="user_config_was_reset">User configuration was reset to default values</string>
+    <string name="user_resources_was_reset">User resources was reset to default values</string>
+    <string name="pref_lang">Language settings</string>
+    <string name="pref_encoding">Game Language</string>
+    <string name="pref_encoding_default">win1252</string>
+    <string name="btn_opacityPlus">Alpha+</string>
+    <string name="btn_opacityMinus">Alpha-</string>
+    <string name="btn_sizePlus">Size+</string>
+    <string name="btn_sizeMinus">Size-</string>
+    <string name="btn_resetControlsLayout">Reset to defaults</string>
+    <string name="pref_physicsFPS2">Physics FPS</string>
+    <string-array name="pref_graphicsLibrary_entries">
+        <item>GLESv1</item>
+        <item>GLESv2</item>
+    </string-array>
+
+    <string-array name="pref_graphicsLibrary_values">
+        <item>gles1</item>
+        <item>gles2</item>
+    </string-array>
+
+    <string name="pref_framerate_limit">Framerate Limit</string>
+    <string-array name="pref_framerate_limit_entries">
+        <item>20</item>
+        <item>30</item>
+        <item>60</item>
+    </string-array>
+    <string-array name="pref_framerate_limit_values">
+        <item>20</item>
+        <item>30</item>
+        <item>60</item>
+    </string-array>
+
+    <string-array name="pref_physicsFPS2_entries">
+        <item>20</item>
+        <item>30</item>
+        <item>60</item>
+    </string-array>
+
+    <string-array name="pref_textureShrinking_entries">
+        <item>None</item>
+        <item>Low</item>
+        <item>Medium</item>
+        <item>High</item>
+    </string-array>
+
+    <string-array name="pref_textureShrinking_values">
+        <item>none</item>
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+    </string-array>
+    <string-array name="pref_shadersDir_entries">
+        <item>Original</item>
+        <item>Modified</item>
+        <item>Zesterer</item>
+        <item>OMWFX</item>
+    </string-array>
+
+    <string-array name="pref_shadersDir_values">
+        <item>none</item>
+        <item>modified</item>
+        <item>zesterer</item>
+        <item>omwfx</item>
+    </string-array>
+
+    <string name="pref_framerate_limit_default">60</string>
+    <string name="pref_physicsFPS2_default">30</string>
+
+    <string name="btn_back">Back</string>
+    <string name="pref_customResolution">Custom Resolution</string>
+    <string name="pref_display_cutout_area">Display in cutout Area</string>
+    <string name="mods">Game Modifications</string>
+    <string name="action_about">About</string>
+    <string name="about_title">About OpenMW</string>
+    <string name="action_theme">Theme</string>
+    <string name="action_theme_system">System</string>
+    <string name="action_theme_light">Light</string>
+    <string name="action_theme_dark">Dark</string>
+
+    <string name="activity_settings">Game Settings</string>
+    <string name="game_mechanics_activity_settings">Gameplay</string>
+    <string name="visuals_activity_settings">Visuals</string>
+    <string name="animations_activity_settings">Animations</string>
+    <string name="interface_activity_settings">Interface</string>
+    <string name="bug_fixes_activity_settings">Bug Fixes</string>
+    <string name="miscellaneous_activity_settings">Miscellaneous</string>
+    <string name="engine_activity_settings">Engine</string>
+    <string name="activity_mods">Mods</string>
+    <string name="tab_plugins">Plugins</string>
+    <string name="tab_resources">Resources</string>
+    <string name="tab_dirs">Directories</string>
+    <string name="tab_groundcover">Groundcovers</string>
+    <string name="data_error_title">Error locating data files</string>
+    <string name="data_error_message">Please select a directory which contains both the \"Morrowind.ini\" file and the \"Data Files\" directory.</string>
+    <string name="permissions_error_title">No permissions</string>
+    <string name="permissions_error_message">OpenMW needs storage permissions to locate and access Morrowind game files. Please grant this permission through settings.</string>
+    <string name="ini_error_message">Failure transforming the configuration file. Please ensure your \"Morrowind.ini\" is well-formed.</string>
+    <string name="no_data_files_title">Data files not found</string>
+    <string name="no_data_files_message">You must copy Morrowind game files to your device and select the path under \"Game files\" before the game can be played.</string>
+    <string name="category_performance">Performance</string>
+    <string name="no_content_files_title">No content files!</string>
+    <string name="no_content_files_message">There are no content files enabled. Before the game can run, you must activate at least one plugin file from the \"Mods…\" menu.</string>
+    <string name="no_content_files_dismiss">Proceed anyway</string>
+
+    <string name="configure_mods">Configure mods</string>
+    <string name="pref_mouse_mode">Mousemode in Menus</string>
+    <string-array name="pref_mouse_mode_entries">
+        <item>Hybrid</item>
+        <item>Relative joystick controls</item>
+        <item>Absolute touch controls</item>
+    </string-array>
+    <string-array name="pref_mouse_mode_values">
+        <item>hybrid</item>
+        <item>joystick</item>
+        <item>touch</item>
+    </string-array>
+    <string name="pref_mouse_mode_default">hybrid</string>
+    <string name="bugsnag_yes">Yes</string>
+    <string name="bugsnag_no">No</string>
+    <string name="bugsnag_policy">Privacy policy</string>
+    <string name="bugsnag_consent_title">Report crashes automatically?</string>
+    <string name="bugsnag_consent_message">Would you like to enable automatic crash reporting?\nIf a crash occurs, some data about your device, configuration and installed mods will be automatically submitted to Bugsnag. You can find more information in the Privacy Policy.\nThis setting can be changed at any time from the menu.</string>
+    <string name="bugsnag_consent_restart_title">Please restart the application</string>
+    <string name="bugsnag_consent_restart_message">You must restart the application for these settings to come into effect.</string>
+    <string name="action_bugsnag_consent">Crash reporting</string>
+
+    <string name="dialog_howto">How To</string>
+    <string name="no_browser_title">Unable to open a URL</string>
+    <string name="no_browser_message">You don\'t appear to have a web browser installed. Tried to open the following URL:\n\n%1$s</string>
+    <string name="pref_show_qp">Enable Quick Keys</string>
+    <string name="pref_show_fn">Enable FN-Keys</string>
+    <string name="pref_always_show_top_bar">Always show Top-Bar Icons</string>
+
+    <string name="theme">0</string>
+
+
+    <string-array name="gs_shadow_quality_entries">
+        <item>Low</item>
+        <item>Medium</item>
+        <item>High</item>
+    </string-array>
+
+    <string-array name="gs_shadow_quality_values">
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+    </string-array>
+
+    <string-array name="gs_shadow_distance_entries">
+        <item>Low</item>
+        <item>Medium</item>
+        <item>High</item>
+    </string-array>
+
+    <string-array name="gs_shadow_distance_values">
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+    </string-array>
+
+    <string name="shadows_activity_settings">Shadows</string>
+
+    <string-array name="gs_maximum_quicksaves_entries">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+    <string-array name="gs_maximum_quicksaves_values">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+</resources>

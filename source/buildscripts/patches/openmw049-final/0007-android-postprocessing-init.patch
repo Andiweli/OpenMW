@@ -1,0 +1,29 @@
+diff --git a/apps/openmw/mwrender/postprocessor.cpp b/apps/openmw/mwrender/postprocessor.cpp
+@@ -13,6 +13,14 @@
+         , mPingPongCull(new PingPongCull(this))
+         , mDistortionCallback(new DistortionCallback)
+     {
++        // Android/GL4ES: the post-processing cameras and FBOs below need the
++        // real surface size from their very first construction. mWidth and
++        // mHeight are otherwise still uninitialised at this point.
++        osg::GraphicsContext* gc = viewer->getCamera()->getGraphicsContext();
++        osg::GLExtensions* ext = gc->getState()->get<osg::GLExtensions>();
++        mWidth = gc->getTraits()->width;
++        mHeight = gc->getTraits()->height;
++
+         auto& shaderManager = mRendering.getResourceSystem()->getSceneManager()->getShaderManager();
+ 
+         std::shared_ptr<LuminanceCalculator> luminanceCalculator = std::make_shared<LuminanceCalculator>(shaderManager);
+@@ -39,12 +47,6 @@
+         distortion->setLocked(true);
+         mInternalTechniques.push_back(distortion);
+ 
+-        osg::GraphicsContext* gc = viewer->getCamera()->getGraphicsContext();
+-        osg::GLExtensions* ext = gc->getState()->get<osg::GLExtensions>();
+-
+-        mWidth = gc->getTraits()->width;
+-        mHeight = gc->getTraits()->height;
+-
+         if (!ext->glDisablei && ext->glDisableIndexedEXT)
+             ext->glDisablei = ext->glDisableIndexedEXT;
+     }

@@ -1,0 +1,79 @@
+diff --git a/apps/openmw/mwrender/postprocessor.cpp b/apps/openmw/mwrender/postprocessor.cpp
+--- a/apps/openmw/mwrender/postprocessor.cpp
++++ b/apps/openmw/mwrender/postprocessor.cpp
+@@ -198,8 +198,24 @@ namespace MWRender
+ 
+         setCullCallback(mStateUpdater);
+ 
++#ifdef ANDROID
++        // Android can resize the SDL surface while OpenMW is already starting
++        // (for example when switching from the inset drawable to fullscreen).
++        // Building the user post-processing chain before the first real cull
++        // can therefore leave GL4ES ping-pong FBO state tied to a transitional
++        // drawable. Defer only the first chain reload; after one live cull the
++        // next update traversal rebuilds it against the actual viewport.
+         if (mUsePostProcessing)
+-            enable();
++        {
++            // Keep isEnabled() truthful from startup. Only delay the first
++            // chain reload until a real frame has established the viewport.
++            mReload = false;
++            mDeferredAndroidPostProcessingEnable = true;
++        }
++#else
++        if (mUsePostProcessing)
++            enable();
++#endif
+     }
+     PostProcessor::~PostProcessor()
+     {
+@@ -246,6 +262,9 @@ namespace MWRender
+ 
+     void PostProcessor::disable()
+     {
++#ifdef ANDROID
++        mDeferredAndroidPostProcessingEnable = false;
++#endif
+         mUsePostProcessing = false;
+         mRendering.getSkyManager()->setSunglare(true);
+     }
+@@ -305,6 +324,26 @@ namespace MWRender
+                     }
+             }
+         }
++
++#ifdef ANDROID
++        if (mDeferredAndroidPostProcessingEnable)
++        {
++            const osg::Viewport* viewport = cv->getViewport();
++            if (viewport && viewport->width() > 0.0 && viewport->height() > 0.0)
++            {
++                // Do not resize or rebuild FBOs during the cull traversal.
++                // Only store the live size and arm enable(); reloadIfRequired()
++                // will rebuild the complete chain safely during the next update.
++                setRenderTargetSize(
++                    static_cast<int>(viewport->width()), static_cast<int>(viewport->height()));
++                mDeferredAndroidPostProcessingEnable = false;
++                enable();
++
++                Log(Debug::Info) << "Android post-processing startup deferred until live viewport "
++                                 << mWidth << "x" << mHeight;
++            }
++        }
++#endif
+     }
+     void PostProcessor::updateLiveReload()
+     {
+diff --git a/apps/openmw/mwrender/postprocessor.hpp b/apps/openmw/mwrender/postprocessor.hpp
+--- a/apps/openmw/mwrender/postprocessor.hpp
++++ b/apps/openmw/mwrender/postprocessor.hpp
+@@ -229,6 +229,9 @@ namespace MWRender
+         bool mReload = true;
+         bool mTriggerShaderReload = false;
+         bool mUsePostProcessing = false;
++#ifdef ANDROID
++        bool mDeferredAndroidPostProcessingEnable = false;
++#endif
+ 
+         bool mUBO = false;
+         bool mHDR = false;

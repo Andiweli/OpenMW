@@ -1,0 +1,105 @@
+diff --git a/apps/openmw/engine.cpp b/apps/openmw/engine.cpp
+--- a/apps/openmw/engine.cpp
++++ b/apps/openmw/engine.cpp
+@@ -457,5 +457,8 @@ void OMW::Engine::setSkipMenu(bool skipMenu, bool newGame)
+     mNewGame = newGame;
+ }
+ 
++// Shared with the Android surface lifecycle bridge in android_main.cpp.
++osg::ref_ptr<osgViewer::Viewer> g_viewer;
++
+ void OMW::Engine::createWindow()
+ {
+@@ -660,4 +663,7 @@ void OMW::Engine::createWindow()
+ 
+     mViewer->getEventQueue()->getCurrentEventState()->setWindowRectangle(
+         0, 0, graphicsWindow->getTraits()->width, graphicsWindow->getTraits()->height);
++
++    // Android may destroy/recreate the Surface without terminating the engine.
++    g_viewer = mViewer;
+ }
+@@ -1041,6 +1047,8 @@ void OMW::Engine::go()
+ 
+     mLuaWorker->join();
+ 
++    g_viewer.release();
++
+     // Save user settings
+     Settings::Manager::saveUser(mCfgMgr.getUserConfigPath() / "settings.cfg");
+     Settings::ShaderManager::get().save();
+diff --git a/apps/openmw/android_main.cpp b/apps/openmw/android_main.cpp
+--- a/apps/openmw/android_main.cpp
++++ b/apps/openmw/android_main.cpp
+@@ -4,10 +4,18 @@ int stderr = 0; // Hack: fix linker error
+ #endif
+ 
+ #include "SDL_main.h"
++#include "mwbase/environment.hpp"
++#include "mwbase/windowmanager.hpp"
++
+ #include <SDL_events.h>
+ #include <SDL_gamecontroller.h>
++#include <SDL_hints.h>
+ #include <SDL_mouse.h>
+ 
++#include <osg/GraphicsContext>
++#include <osg/OperationThread>
++#include <osgViewer/Viewer>
++
+ /*******************************************************************************
+  Functions called by JNI
+  *******************************************************************************/
+@@ -60,5 +68,53 @@ extern "C" int Java_org_libsdl_app_SDLActivity_nativeInit(JNIEnv* env, jclass cls,
+         "guide:b16,leftshoulder:b6,leftstick:b13,lefttrigger:a5,leftx:a0,lefty:a1,rightshoulder:b7,rightstick:b14,"
+         "righttrigger:a4,rightx:a2,righty:a3,start:b11,x:b3,y:b4");
+ 
++    SDL_SetHint(SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0");
++    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
++
+     return 0;
+ }
++
++extern osg::ref_ptr<osgViewer::Viewer> g_viewer;
++static osg::GraphicsContext* g_androidContext = nullptr;
++
++class CtxReleaseOperation : public osg::Operation
++{
++public:
++    void operator()(osg::Object*) override
++    {
++        if (g_androidContext)
++            g_androidContext->releaseContext();
++    }
++};
++
++class CtxAcquireOperation : public osg::Operation
++{
++public:
++    void operator()(osg::Object*) override
++    {
++        if (g_androidContext)
++            g_androidContext->makeCurrent();
++    }
++};
++
++extern "C" void Java_org_libsdl_app_SDLActivity_omwSurfaceDestroyed(JNIEnv*, jclass, jobject)
++{
++    if (!g_viewer)
++        return;
++
++    g_androidContext = g_viewer->getCamera()->getGraphicsContext();
++    g_androidContext->add(new CtxReleaseOperation());
++
++    MWBase::Environment::get().getWindowManager()->windowVisibilityChange(false);
++}
++
++extern "C" void Java_org_libsdl_app_SDLActivity_omwSurfaceRecreated(JNIEnv*, jclass, jobject)
++{
++    if (!g_viewer)
++        return;
++
++    g_androidContext = g_viewer->getCamera()->getGraphicsContext();
++    g_androidContext->add(new CtxAcquireOperation());
++
++    MWBase::Environment::get().getWindowManager()->windowVisibilityChange(true);
++}

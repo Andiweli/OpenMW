@@ -1,0 +1,56 @@
+From 01253ecd7e0a01d311670f2d03c61b82fc12d338 Mon Sep 17 00:00:00 2001
+From: Milan Bulat <milan@peer.inc>
+Date: Mon, 9 Oct 2023 17:04:51 +0400
+Subject: [PATCH] Make the existence of gz_intmax() unconditional.
+
+gz_intmax() is noted in zlib.map. This assures it's always there.
+---
+ gzguts.h |  6 +-----
+ gzlib.c  | 10 +++++-----
+ 2 files changed, 6 insertions(+), 10 deletions(-)
+
+diff --git a/gzguts.h b/gzguts.h
+index f9375047e..adc2b34fe 100644
+--- a/gzguts.h
++++ b/gzguts.h
+@@ -210,9 +210,5 @@ char ZLIB_INTERNAL *gz_strwinerror(DWORD error);
+ /* GT_OFF(x), where x is an unsigned value, is true if x > maximum z_off64_t
+    value -- needed when comparing unsigned to z_off64_t, which is signed
+    (possible z_off64_t types off_t, off64_t, and long are all signed) */
+-#ifdef INT_MAX
+-#  define GT_OFF(x) (sizeof(int) == sizeof(z_off64_t) && (x) > INT_MAX)
+-#else
+ unsigned ZLIB_INTERNAL gz_intmax(void);
+-#  define GT_OFF(x) (sizeof(int) == sizeof(z_off64_t) && (x) > gz_intmax())
+-#endif
++#define GT_OFF(x) (sizeof(int) == sizeof(z_off64_t) && (x) > gz_intmax())
+diff --git a/gzlib.c b/gzlib.c
+index 29fc4486f..9c103dbd1 100644
+--- a/gzlib.c
++++ b/gzlib.c
+@@ -563,20 +563,20 @@ void ZLIB_INTERNAL gz_error(gz_statep state, int err, const char *msg) {
+ #endif
+ }
+ 
+-#ifndef INT_MAX
+ /* portably return maximum value for an int (when limits.h presumed not
+    available) -- we need to do this to cover cases where 2's complement not
+    used, since C standard permits 1's complement and sign-bit representations,
+    otherwise we could just use ((unsigned)-1) >> 1 */
+ unsigned ZLIB_INTERNAL gz_intmax(void) {
+-    unsigned p, q;
+-
+-    p = 1;
++#ifdef INT_MAX
++    return INT_MAX;
++#else
++    unsigned p = 1, q;
+     do {
+         q = p;
+         p <<= 1;
+         p++;
+     } while (p > q);
+     return q >> 1;
+-}
+ #endif
++}

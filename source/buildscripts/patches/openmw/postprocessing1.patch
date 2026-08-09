@@ -1,0 +1,541 @@
+From f9445de2faabd65f0685d8f795cce572b5187969 Mon Sep 17 00:00:00 2001
+From: sisah <jirielbunda@seznam.cz>
+Date: Mon, 1 Jan 2024 06:36:33 -0500
+Subject: [PATCH] Postprocessing fixes, core shaders
+
+---
+ apps/openmw/mwrender/luminancecalculator.cpp  |  4 +-
+ apps/openmw/mwrender/npcanimation.cpp         |  2 +-
+ apps/openmw/mwrender/postprocessor.cpp        |  6 +--
+ apps/openmw/mwrender/renderingmanager.cpp     |  4 +-
+ apps/openmw/mwrender/transparentpass.cpp      |  7 ++--
+ components/fx/parse_constants.hpp             |  5 ++-
+ components/fx/pass.cpp                        |  2 +-
+ components/shader/shadervisitor.cpp           | 10 +++++
+ files/data/shaders/bloomlinear.omwfx          | 10 ++---
+ files/shaders/compatibility/bs/default.frag   |  0
+ files/shaders/compatibility/bs/default.vert   |  0
+ .../shaders/compatibility/bs/nolighting.frag  |  0
+ .../shaders/compatibility/bs/nolighting.vert  |  0
+ files/shaders/compatibility/debug.frag        |  2 +-
+ files/shaders/compatibility/debug.vert        |  2 +-
+ files/shaders/compatibility/depthclipped.frag |  0
+ files/shaders/compatibility/depthclipped.vert |  0
+ files/shaders/compatibility/fog.glsl          |  0
+ .../shaders/compatibility/fullscreen_tri.frag |  0
+ .../shaders/compatibility/fullscreen_tri.vert |  2 +-
+ files/shaders/compatibility/groundcover.frag  |  0
+ files/shaders/compatibility/groundcover.vert  |  0
+ files/shaders/compatibility/gui.frag          |  0
+ files/shaders/compatibility/gui.vert          |  0
+ .../compatibility/luminance/luminance.frag    |  0
+ .../compatibility/luminance/resolve.frag      |  0
+ .../compatibility/multiview_resolve.frag      |  0
+ .../compatibility/multiview_resolve.vert      |  0
+ files/shaders/compatibility/normals.glsl      |  0
+ files/shaders/compatibility/objects.frag      |  8 ++--
+ files/shaders/compatibility/objects.vert      |  0
+ .../compatibility/ripples_blobber.frag        |  0
+ .../compatibility/ripples_simulate.frag       |  0
+ files/shaders/compatibility/s360.frag         |  0
+ files/shaders/compatibility/s360.vert         |  0
+ .../shaders/compatibility/shadowcasting.frag  |  0
+ .../shaders/compatibility/shadowcasting.vert  |  0
+ .../compatibility/shadows_fragment.glsl       |  0
+ .../shaders/compatibility/shadows_vertex.glsl |  0
+ files/shaders/compatibility/sky.frag          |  0
+ files/shaders/compatibility/sky.vert          |  0
+ files/shaders/compatibility/terrain.frag      |  0
+ files/shaders/compatibility/terrain.vert      |  0
+ files/shaders/compatibility/vertexcolors.glsl |  0
+ files/shaders/compatibility/water.frag        |  0
+ files/shaders/compatibility/water.vert        |  0
+ files/shaders/core/gui.frag                   |  0
+ files/shaders/core/gui.vert                   |  0
+ files/shaders/core/ripples_blobber.comp       |  0
+ files/shaders/core/ripples_simulate.comp      |  0
+ files/shaders/lib/core/fragment.glsl          |  0
+ files/shaders/lib/core/fragment.h.glsl        | 37 +++++++++++++++----
+ .../shaders/lib/core/fragment_multiview.glsl  |  0
+ files/shaders/lib/core/vertex.glsl            |  0
+ files/shaders/lib/core/vertex.h.glsl          | 20 +++++++---
+ files/shaders/lib/core/vertex_multiview.glsl  |  0
+ files/shaders/lib/light/lighting.glsl         |  0
+ files/shaders/lib/light/lighting_util.glsl    |  0
+ files/shaders/lib/luminance/constants.glsl    |  0
+ files/shaders/lib/material/alpha.glsl         |  0
+ files/shaders/lib/material/parallax.glsl      |  0
+ files/shaders/lib/particle/occlusion.glsl     |  0
+ files/shaders/lib/particle/soft.glsl          |  0
+ files/shaders/lib/sky/passes.glsl             |  0
+ files/shaders/lib/util/coordinates.glsl       |  0
+ files/shaders/lib/util/distortion.glsl        |  0
+ files/shaders/lib/util/quickstep.glsl         |  0
+ files/shaders/lib/view/depth.glsl             |  0
+ files/shaders/lib/water/fresnel.glsl          |  0
+ files/shaders/lib/water/rain_ripples.glsl     |  0
+ files/shaders/lib/water/ripples.glsl          |  0
+ 71 files changed, 83 insertions(+), 38 deletions(-)
+ mode change 100644 => 100755 files/data/shaders/bloomlinear.omwfx
+ mode change 100644 => 100755 files/shaders/compatibility/bs/default.frag
+ mode change 100644 => 100755 files/shaders/compatibility/bs/default.vert
+ mode change 100644 => 100755 files/shaders/compatibility/bs/nolighting.frag
+ mode change 100644 => 100755 files/shaders/compatibility/bs/nolighting.vert
+ mode change 100644 => 100755 files/shaders/compatibility/debug.frag
+ mode change 100644 => 100755 files/shaders/compatibility/debug.vert
+ mode change 100644 => 100755 files/shaders/compatibility/depthclipped.frag
+ mode change 100644 => 100755 files/shaders/compatibility/depthclipped.vert
+ mode change 100644 => 100755 files/shaders/compatibility/fog.glsl
+ mode change 100644 => 100755 files/shaders/compatibility/fullscreen_tri.frag
+ mode change 100644 => 100755 files/shaders/compatibility/fullscreen_tri.vert
+ mode change 100644 => 100755 files/shaders/compatibility/groundcover.frag
+ mode change 100644 => 100755 files/shaders/compatibility/groundcover.vert
+ mode change 100644 => 100755 files/shaders/compatibility/gui.frag
+ mode change 100644 => 100755 files/shaders/compatibility/gui.vert
+ mode change 100644 => 100755 files/shaders/compatibility/luminance/luminance.frag
+ mode change 100644 => 100755 files/shaders/compatibility/luminance/resolve.frag
+ mode change 100644 => 100755 files/shaders/compatibility/multiview_resolve.frag
+ mode change 100644 => 100755 files/shaders/compatibility/multiview_resolve.vert
+ mode change 100644 => 100755 files/shaders/compatibility/normals.glsl
+ mode change 100644 => 100755 files/shaders/compatibility/objects.frag
+ mode change 100644 => 100755 files/shaders/compatibility/objects.vert
+ mode change 100644 => 100755 files/shaders/compatibility/ripples_blobber.frag
+ mode change 100644 => 100755 files/shaders/compatibility/ripples_simulate.frag
+ mode change 100644 => 100755 files/shaders/compatibility/s360.frag
+ mode change 100644 => 100755 files/shaders/compatibility/s360.vert
+ mode change 100644 => 100755 files/shaders/compatibility/shadowcasting.frag
+ mode change 100644 => 100755 files/shaders/compatibility/shadowcasting.vert
+ mode change 100644 => 100755 files/shaders/compatibility/shadows_fragment.glsl
+ mode change 100644 => 100755 files/shaders/compatibility/shadows_vertex.glsl
+ mode change 100644 => 100755 files/shaders/compatibility/sky.frag
+ mode change 100644 => 100755 files/shaders/compatibility/sky.vert
+ mode change 100644 => 100755 files/shaders/compatibility/terrain.frag
+ mode change 100644 => 100755 files/shaders/compatibility/terrain.vert
+ mode change 100644 => 100755 files/shaders/compatibility/vertexcolors.glsl
+ mode change 100644 => 100755 files/shaders/compatibility/water.frag
+ mode change 100644 => 100755 files/shaders/compatibility/water.vert
+ mode change 100644 => 100755 files/shaders/core/gui.frag
+ mode change 100644 => 100755 files/shaders/core/gui.vert
+ mode change 100644 => 100755 files/shaders/core/ripples_blobber.comp
+ mode change 100644 => 100755 files/shaders/core/ripples_simulate.comp
+ mode change 100644 => 100755 files/shaders/lib/core/fragment.glsl
+ mode change 100644 => 100755 files/shaders/lib/core/fragment.h.glsl
+ mode change 100644 => 100755 files/shaders/lib/core/fragment_multiview.glsl
+ mode change 100644 => 100755 files/shaders/lib/core/vertex.glsl
+ mode change 100644 => 100755 files/shaders/lib/core/vertex.h.glsl
+ mode change 100644 => 100755 files/shaders/lib/core/vertex_multiview.glsl
+ mode change 100644 => 100755 files/shaders/lib/light/lighting.glsl
+ mode change 100644 => 100755 files/shaders/lib/light/lighting_util.glsl
+ mode change 100644 => 100755 files/shaders/lib/luminance/constants.glsl
+ mode change 100644 => 100755 files/shaders/lib/material/alpha.glsl
+ mode change 100644 => 100755 files/shaders/lib/material/parallax.glsl
+ mode change 100644 => 100755 files/shaders/lib/particle/occlusion.glsl
+ mode change 100644 => 100755 files/shaders/lib/particle/soft.glsl
+ mode change 100644 => 100755 files/shaders/lib/sky/passes.glsl
+ mode change 100644 => 100755 files/shaders/lib/util/coordinates.glsl
+ mode change 100644 => 100755 files/shaders/lib/util/distortion.glsl
+ mode change 100644 => 100755 files/shaders/lib/util/quickstep.glsl
+ mode change 100644 => 100755 files/shaders/lib/view/depth.glsl
+ mode change 100644 => 100755 files/shaders/lib/water/fresnel.glsl
+ mode change 100644 => 100755 files/shaders/lib/water/rain_ripples.glsl
+ mode change 100644 => 100755 files/shaders/lib/water/ripples.glsl
+
+diff --git a/apps/openmw/mwrender/luminancecalculator.cpp b/apps/openmw/mwrender/luminancecalculator.cpp
+index ae29b7fdcc8..de4ac766f1b 100644
+--- a/apps/openmw/mwrender/luminancecalculator.cpp
++++ b/apps/openmw/mwrender/luminancecalculator.cpp
+@@ -26,7 +26,7 @@ namespace MWRender
+             buffer.mipmappedSceneLuminanceTex = new osg::Texture2D;
+             buffer.mipmappedSceneLuminanceTex->setInternalFormat(GL_R16F);
+             buffer.mipmappedSceneLuminanceTex->setSourceFormat(GL_RED);
+-            buffer.mipmappedSceneLuminanceTex->setSourceType(GL_FLOAT);
++            buffer.mipmappedSceneLuminanceTex->setSourceType(GL_HALF_FLOAT);
+             buffer.mipmappedSceneLuminanceTex->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+             buffer.mipmappedSceneLuminanceTex->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+             buffer.mipmappedSceneLuminanceTex->setFilter(
+@@ -37,7 +37,7 @@ namespace MWRender
+             buffer.luminanceTex = new osg::Texture2D;
+             buffer.luminanceTex->setInternalFormat(GL_R16F);
+             buffer.luminanceTex->setSourceFormat(GL_RED);
+-            buffer.luminanceTex->setSourceType(GL_FLOAT);
++            buffer.luminanceTex->setSourceType(GL_HALF_FLOAT);
+             buffer.luminanceTex->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+             buffer.luminanceTex->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+             buffer.luminanceTex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
+diff --git a/apps/openmw/mwrender/npcanimation.cpp b/apps/openmw/mwrender/npcanimation.cpp
+index 01bdcec665e..20fd4aac692 100644
+--- a/apps/openmw/mwrender/npcanimation.cpp
++++ b/apps/openmw/mwrender/npcanimation.cpp
+@@ -347,7 +347,7 @@ namespace MWRender
+             auto primaryFBO = postProcessor->getPrimaryFbo(frameId);
+             primaryFBO->apply(*state);
+ 
+-            postProcessor->getFbo(PostProcessor::FBO_OpaqueDepth, frameId)->apply(*state);
++            //postProcessor->getFbo(PostProcessor::FBO_OpaqueDepth, frameId)->apply(*state);
+ 
+             // depth accumulation pass
+             osg::ref_ptr<osg::StateSet> restore = bin->getStateSet();
+diff --git a/apps/openmw/mwrender/postprocessor.cpp b/apps/openmw/mwrender/postprocessor.cpp
+index 1aaeb460b7d..d3f4ed092c3 100644
+--- a/apps/openmw/mwrender/postprocessor.cpp
++++ b/apps/openmw/mwrender/postprocessor.cpp
+@@ -300,7 +300,7 @@ namespace MWRender
+         mCanvases[frameId]->setCalculateAvgLum(mHDR);
+ 
+         mCanvases[frameId]->setTextureScene(getTexture(Tex_Scene, frameId));
+-        mCanvases[frameId]->setTextureDepth(getTexture(Tex_OpaqueDepth, frameId));
++        mCanvases[frameId]->setTextureDepth(getTexture(Tex_Depth, frameId));
+         mCanvases[frameId]->setTextureDistortion(getTexture(Tex_Distortion, frameId));
+ 
+         mTransparentDepthPostPass->mFbo[frameId] = mFbos[frameId][FBO_Primary];
+@@ -407,12 +407,12 @@ namespace MWRender
+             mPrevPassLights = mPassLights;
+ 
+             mViewer->stopThreading();
+-
++/*
+             auto& shaderManager = MWBase::Environment::get().getResourceSystem()->getSceneManager()->getShaderManager();
+             auto defines = shaderManager.getGlobalDefines();
+             defines["disableNormals"] = mNormals ? "0" : "1";
+             shaderManager.setGlobalDefines(defines);
+-
++*/
+             mRendering.getLightRoot()->setCollectPPLights(mPassLights);
+             mStateUpdater->bindPointLights(mPassLights ? mRendering.getLightRoot()->getPPLightsBuffer() : nullptr);
+             mStateUpdater->reset();
+diff --git a/apps/openmw/mwrender/renderingmanager.cpp b/apps/openmw/mwrender/renderingmanager.cpp
+index 2cfcd2fd37f..6770a5c93e2 100644
+--- a/apps/openmw/mwrender/renderingmanager.cpp
++++ b/apps/openmw/mwrender/renderingmanager.cpp
+@@ -463,8 +463,8 @@ namespace MWRender
+ 
+         mPostProcessor = new PostProcessor(*this, viewer, mRootNode, resourceSystem->getVFS());
+         resourceSystem->getSceneManager()->setOpaqueDepthTex(
+-            mPostProcessor->getTexture(PostProcessor::Tex_OpaqueDepth, 0),
+-            mPostProcessor->getTexture(PostProcessor::Tex_OpaqueDepth, 1));
++            mPostProcessor->getTexture(PostProcessor::Tex_Depth, 0),
++            mPostProcessor->getTexture(PostProcessor::Tex_Depth, 1));
+         resourceSystem->getSceneManager()->setSoftParticles(Settings::shaders().mSoftParticles);
+         resourceSystem->getSceneManager()->setSupportsNormalsRT(mPostProcessor->getSupportsNormalsRT());
+         resourceSystem->getSceneManager()->setWeatherParticleOcclusion(Settings::shaders().mWeatherParticleOcclusion);
+diff --git a/apps/openmw/mwrender/transparentpass.cpp b/apps/openmw/mwrender/transparentpass.cpp
+index ce53b1c2193..cdda1d4fe39 100644
+--- a/apps/openmw/mwrender/transparentpass.cpp
++++ b/apps/openmw/mwrender/transparentpass.cpp
+@@ -92,8 +92,9 @@ namespace MWRender
+         else
+         {
+             opaqueFbo->apply(state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
+-            ext->glBlitFramebuffer(0, 0, tex->getTextureWidth(), tex->getTextureHeight(), 0, 0, tex->getTextureWidth(),
+-                tex->getTextureHeight(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
++            //ext->glBlitFramebuffer(0, 0, tex->getTextureWidth(), tex->getTextureHeight(), 0, 0, tex->getTextureWidth(),
++                //tex->getTextureHeight(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
++            glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+         }
+ 
+         msaaFbo ? msaaFbo->apply(state, osg::FrameBufferObject::DRAW_FRAMEBUFFER)
+@@ -105,7 +106,7 @@ namespace MWRender
+         if (!mPostPass)
+             return;
+ 
+-        opaqueFbo->apply(state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
++        //opaqueFbo->apply(state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
+ 
+         // draw transparent post-pass to populate a postprocess friendly depth texture with alpha-clipped geometry
+ 
+diff --git a/components/fx/parse_constants.hpp b/components/fx/parse_constants.hpp
+index 9be54ed3a76..55585f8106d 100644
+--- a/components/fx/parse_constants.hpp
++++ b/components/fx/parse_constants.hpp
+@@ -35,7 +35,7 @@ namespace fx
+             { "bgra", GL_BGRA },
+         } };
+ 
+-        constexpr std::array<std::pair<std::string_view, int>, 9> SourceType = { {
++        constexpr std::array<std::pair<std::string_view, int>, 10> SourceType = { {
+             { "byte", GL_BYTE },
+             { "unsigned_byte", GL_UNSIGNED_BYTE },
+             { "short", GL_SHORT },
+@@ -44,6 +44,7 @@ namespace fx
+             { "unsigned_int", GL_UNSIGNED_INT },
+             { "unsigned_int_24_8", GL_UNSIGNED_INT_24_8 },
+             { "float", GL_FLOAT },
++            { "half_float", GL_HALF_FLOAT },
+             { "double", GL_DOUBLE },
+         } };
+ 
+@@ -129,4 +130,4 @@ namespace fx
+     }
+ }
+ 
+-#endif
+\ No newline at end of file
++#endif
+diff --git a/components/fx/pass.cpp b/components/fx/pass.cpp
+index cf50d20fe22..20d090ef6cf 100644
+--- a/components/fx/pass.cpp
++++ b/components/fx/pass.cpp
+@@ -89,7 +89,7 @@ namespace fx
+ 
+ uniform @builtinSampler omw_SamplerLastShader;
+ uniform @builtinSampler omw_SamplerLastPass;
+-uniform @builtinSampler omw_SamplerDepth;
++uniform highp @builtinSampler omw_SamplerDepth;
+ uniform @builtinSampler omw_SamplerNormals;
+ uniform @builtinSampler omw_SamplerDistortion;
+ 
+diff --git a/components/shader/shadervisitor.cpp b/components/shader/shadervisitor.cpp
+index 70464f571e6..24ef8c8238c 100644
+--- a/components/shader/shadervisitor.cpp
++++ b/components/shader/shadervisitor.cpp
+@@ -32,6 +32,9 @@
+ #include "removedalphafunc.hpp"
+ #include "shadermanager.hpp"
+ 
++#include <components/settings/values.hpp>
++#include <components/sceneutil/depth.hpp>
++
+ namespace Shader
+ {
+     /**
+@@ -730,6 +733,13 @@ namespace Shader
+             updateRemovedState(*writableUserData, removedState);
+         }
+ 
++        if (reqs.mAlphaBlend && Settings::postProcessing().mTransparentPostpass && Settings::postProcessing().mEnabled)
++        {
++            osg::ref_ptr<osg::Depth> depth = new SceneUtil::AutoDepth;
++            depth->setWriteMask(false);
++            writableStateSet->setAttributeAndModes(depth, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
++        }
++
+         defineMap["softParticles"] = reqs.mSoftParticles ? "1" : "0";
+ 
+         Stereo::shaderStereoDefines(defineMap);
+diff --git a/files/data/shaders/bloomlinear.omwfx b/files/data/shaders/bloomlinear.omwfx
+old mode 100644
+new mode 100755
+index 3de7139f39a..4c583a9a898
+--- a/files/data/shaders/bloomlinear.omwfx
++++ b/files/data/shaders/bloomlinear.omwfx
+@@ -80,8 +80,8 @@ shared {
+         radius = max(radius, 0.1);
+         // hack: make the radius wider on the screen edges
+         // (makes things in the corner of the screen look less "wrong" with not-extremely-low FOVs)
+-        radius *= pow(texcoord.x*2.0-1.0, 2)+1.0;
+-        radius *= pow(texcoord.y*2.0-1.0, 2)+1.0;
++        radius *= pow(texcoord.x*2.0-1.0, 2.0)+1.0;
++        radius *= pow(texcoord.y*2.0-1.0, 2.0)+1.0;
+         return radius;
+     }
+     vec3 powv(vec3 a, float x)
+@@ -94,7 +94,7 @@ render_target RT_NoMipmap {
+     width_ratio = 0.25;
+     height_ratio = 0.25;
+     internal_format = rgb16f;
+-    source_type = float;
++    source_type = half_float;
+     source_format = rgb;
+     mipmaps = false;
+     min_filter = nearest;
+@@ -105,7 +105,7 @@ render_target RT_Horizontal {
+     width_ratio = 0.25;
+     height_ratio = 0.25;
+     internal_format = rgb16f;
+-    source_type = float;
++    source_type = half_float;
+     source_format = rgb;
+     mipmaps = false;
+     min_filter = nearest;
+@@ -116,7 +116,7 @@ render_target RT_Vertical {
+     width_ratio = 0.25;
+     height_ratio = 0.25;
+     internal_format = rgb16f;
+-    source_type = float;
++    source_type = half_float;
+     source_format = rgb;
+     mipmaps = false;
+     min_filter = linear;
+diff --git a/files/shaders/compatibility/bs/default.frag b/files/shaders/compatibility/bs/default.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/bs/default.vert b/files/shaders/compatibility/bs/default.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/bs/nolighting.frag b/files/shaders/compatibility/bs/nolighting.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/bs/nolighting.vert b/files/shaders/compatibility/bs/nolighting.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/debug.frag b/files/shaders/compatibility/debug.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/depthclipped.frag b/files/shaders/compatibility/depthclipped.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/depthclipped.vert b/files/shaders/compatibility/depthclipped.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/fog.glsl b/files/shaders/compatibility/fog.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/fullscreen_tri.frag b/files/shaders/compatibility/fullscreen_tri.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/fullscreen_tri.vert b/files/shaders/compatibility/fullscreen_tri.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/groundcover.frag b/files/shaders/compatibility/groundcover.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/groundcover.vert b/files/shaders/compatibility/groundcover.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/gui.frag b/files/shaders/compatibility/gui.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/gui.vert b/files/shaders/compatibility/gui.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/luminance/luminance.frag b/files/shaders/compatibility/luminance/luminance.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/luminance/resolve.frag b/files/shaders/compatibility/luminance/resolve.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/multiview_resolve.frag b/files/shaders/compatibility/multiview_resolve.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/multiview_resolve.vert b/files/shaders/compatibility/multiview_resolve.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/normals.glsl b/files/shaders/compatibility/normals.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/objects.frag b/files/shaders/compatibility/objects.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/objects.vert b/files/shaders/compatibility/objects.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/ripples_blobber.frag b/files/shaders/compatibility/ripples_blobber.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/ripples_simulate.frag b/files/shaders/compatibility/ripples_simulate.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/s360.frag b/files/shaders/compatibility/s360.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/s360.vert b/files/shaders/compatibility/s360.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/shadowcasting.frag b/files/shaders/compatibility/shadowcasting.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/shadowcasting.vert b/files/shaders/compatibility/shadowcasting.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/shadows_fragment.glsl b/files/shaders/compatibility/shadows_fragment.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/shadows_vertex.glsl b/files/shaders/compatibility/shadows_vertex.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/sky.frag b/files/shaders/compatibility/sky.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/sky.vert b/files/shaders/compatibility/sky.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/terrain.frag b/files/shaders/compatibility/terrain.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/terrain.vert b/files/shaders/compatibility/terrain.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/vertexcolors.glsl b/files/shaders/compatibility/vertexcolors.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/water.frag b/files/shaders/compatibility/water.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/compatibility/water.vert b/files/shaders/compatibility/water.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/core/gui.frag b/files/shaders/core/gui.frag
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/core/gui.vert b/files/shaders/core/gui.vert
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/core/ripples_blobber.comp b/files/shaders/core/ripples_blobber.comp
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/core/ripples_simulate.comp b/files/shaders/core/ripples_simulate.comp
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/core/fragment.glsl b/files/shaders/lib/core/fragment.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/core/fragment.h.glsl b/files/shaders/lib/core/fragment.h.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/core/fragment_multiview.glsl b/files/shaders/lib/core/fragment_multiview.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/core/vertex.glsl b/files/shaders/lib/core/vertex.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/core/vertex.h.glsl b/files/shaders/lib/core/vertex.h.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/core/vertex_multiview.glsl b/files/shaders/lib/core/vertex_multiview.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/light/lighting.glsl b/files/shaders/lib/light/lighting.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/light/lighting_util.glsl b/files/shaders/lib/light/lighting_util.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/luminance/constants.glsl b/files/shaders/lib/luminance/constants.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/material/alpha.glsl b/files/shaders/lib/material/alpha.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/material/parallax.glsl b/files/shaders/lib/material/parallax.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/particle/occlusion.glsl b/files/shaders/lib/particle/occlusion.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/particle/soft.glsl b/files/shaders/lib/particle/soft.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/sky/passes.glsl b/files/shaders/lib/sky/passes.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/util/coordinates.glsl b/files/shaders/lib/util/coordinates.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/util/distortion.glsl b/files/shaders/lib/util/distortion.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/util/quickstep.glsl b/files/shaders/lib/util/quickstep.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/view/depth.glsl b/files/shaders/lib/view/depth.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/water/fresnel.glsl b/files/shaders/lib/water/fresnel.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/water/rain_ripples.glsl b/files/shaders/lib/water/rain_ripples.glsl
+old mode 100644
+new mode 100755
+diff --git a/files/shaders/lib/water/ripples.glsl b/files/shaders/lib/water/ripples.glsl
+old mode 100644
+new mode 100755

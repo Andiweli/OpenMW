@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="Saves">
+
+        <CheckBoxPreference
+            android:key="gs_add_time_to_saves"
+            android:title="Add Time Played to Saves"
+            android:summary="This setting determines whether the amount of the time the player has spent playing will be displayed for each saved game in the Load menu."/>
+
+        <EditTextPreference
+            android:key="gs_maximum_quicksaves"
+            android:title="Maximum Quicksaves"
+            android:dialogTitle="Maximum Quicksaves"
+            android:inputType="numberDecimal"
+            android:hint="1"
+            android:defaultValue="1"
+            android:summary="Max amount of stored quicksaves"/>
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

@@ -1,0 +1,337 @@
+From bbd346e0111367653cb952fec867a9dc38bbcf88 Mon Sep 17 00:00:00 2001
+From: Duron27 <duron27@gmail.com>
+Date: Thu, 15 Feb 2024 02:14:12 -0500
+Subject: [PATCH] shaders
+
+yep
+---
+ files/shaders/compatibility/bs/default.frag   |  2 +-
+ files/shaders/compatibility/bs/default.vert   |  2 +-
+ .../shaders/compatibility/bs/nolighting.vert  |  2 +-
+ files/shaders/compatibility/debug.frag        |  2 +-
+ files/shaders/compatibility/debug.vert        |  2 +-
+ .../shaders/compatibility/fullscreen_tri.vert |  2 +-
+ files/shaders/compatibility/groundcover.vert  |  2 +-
+ files/shaders/compatibility/objects.frag      | 10 ++---
+ files/shaders/compatibility/objects.vert      |  2 +-
+ files/shaders/compatibility/terrain.frag      |  2 +-
+ files/shaders/compatibility/terrain.vert      |  2 +-
+ files/shaders/compatibility/water.frag        | 22 +----------
+ files/shaders/lib/core/fragment.h.glsl        | 37 +++++++++++++++----
+ files/shaders/lib/core/vertex.h.glsl          | 20 +++++++---
+ 14 files changed, 62 insertions(+), 47 deletions(-)
+
+diff --git a/files/shaders/compatibility/bs/default.frag b/files/shaders/compatibility/bs/default.frag
+index 77131c6a52c..ec5f5c89780 100644
+--- a/files/shaders/compatibility/bs/default.frag
++++ b/files/shaders/compatibility/bs/default.frag
+@@ -80,7 +80,7 @@ void main()
+     vec3 viewNormal = normalToView(normalTex.xyz * 2.0 - 1.0);
+     specularColor *= normalTex.a;
+ #else
+-    vec3 viewNormal = normalize(gl_NormalMatrix * passNormal);
++    vec3 viewNormal = normalToView(normalize(passNormal));
+ #endif
+ 
+     float shadowing = unshadowedLightRatio(linearDepth);
+diff --git a/files/shaders/compatibility/bs/default.vert b/files/shaders/compatibility/bs/default.vert
+index 21942ec91e8..d9d47843c09 100644
+--- a/files/shaders/compatibility/bs/default.vert
++++ b/files/shaders/compatibility/bs/default.vert
+@@ -69,7 +69,7 @@ void main(void)
+ 
+ 
+ #if @shadows_enabled
+-    vec3 viewNormal = normalize(gl_NormalMatrix * passNormal);
++    vec3 viewNormal = normalToView(passNormal);
+     setupShadowCoords(viewPos, viewNormal);
+ #endif
+ }
+diff --git a/files/shaders/compatibility/bs/nolighting.vert b/files/shaders/compatibility/bs/nolighting.vert
+index 57cedc6e948..3b0fa7b6261 100644
+--- a/files/shaders/compatibility/bs/nolighting.vert
++++ b/files/shaders/compatibility/bs/nolighting.vert
+@@ -63,7 +63,7 @@ void main(void)
+     }
+ 
+ #if @shadows_enabled
+-    vec3 viewNormal = normalize(gl_NormalMatrix * passNormal);
++    vec3 viewNormal = normalize((gl_NormalMatrix * gl_Normal).xyz);
+     setupShadowCoords(viewPos, viewNormal);
+ #endif
+ }
+diff --git a/files/shaders/compatibility/debug.frag b/files/shaders/compatibility/debug.frag
+index a92b406d46b..041562fc0e2 100644
+--- a/files/shaders/compatibility/debug.frag
++++ b/files/shaders/compatibility/debug.frag
+@@ -4,7 +4,7 @@
+ 
+ varying vec3 vertexNormal;
+ 
+-uniform bool useAdvancedShader = false;
++uniform bool useAdvancedShader;
+ 
+ void main()
+ {
+diff --git a/files/shaders/compatibility/debug.vert b/files/shaders/compatibility/debug.vert
+index 47d5337a66f..a1fa462f397 100644
+--- a/files/shaders/compatibility/debug.vert
++++ b/files/shaders/compatibility/debug.vert
+@@ -6,7 +6,7 @@ uniform vec3 color;
+ uniform vec3 trans;
+ uniform vec3 scale;
+ uniform bool useNormalAsColor;
+-uniform bool useAdvancedShader = false;
++uniform bool useAdvancedShader;
+ 
+ centroid varying vec4 passColor;
+ varying vec3 vertexNormal;
+diff --git a/files/shaders/compatibility/fullscreen_tri.vert b/files/shaders/compatibility/fullscreen_tri.vert
+index 3174384212e..8510a0933c1 100644
+--- a/files/shaders/compatibility/fullscreen_tri.vert
++++ b/files/shaders/compatibility/fullscreen_tri.vert
+@@ -1,6 +1,6 @@
+ #version 120
+ 
+-uniform vec2 scaling = vec2(1.0, 1.0);
++uniform vec2 scaling;// = vec2(1.0, 1.0);
+ 
+ varying vec2 uv;
+ 
+diff --git a/files/shaders/compatibility/groundcover.vert b/files/shaders/compatibility/groundcover.vert
+index 8cf53a19e05..95a17b50849 100644
+--- a/files/shaders/compatibility/groundcover.vert
++++ b/files/shaders/compatibility/groundcover.vert
+@@ -156,7 +156,7 @@ void main(void)
+ #endif
+ 
+ #if (!PER_PIXEL_LIGHTING || @shadows_enabled)
+-    vec3 viewNormal = normalize(gl_NormalMatrix * passNormal);
++    vec3 viewNormal = normalToView(passNormal);
+ #endif
+ 
+ #if @diffuseMap
+diff --git a/files/shaders/compatibility/objects.frag b/files/shaders/compatibility/objects.frag
+index 56c7abf27c7..8966a84bf05 100644
+--- a/files/shaders/compatibility/objects.frag
++++ b/files/shaders/compatibility/objects.frag
+@@ -84,11 +84,11 @@ varying vec3 passNormal;
+ #if @normalMap || @diffuseParallax
+ varying vec4 passTangent;
+ #endif
+-
++/*
+ #if @additiveBlending
+ #define ADDITIVE_BLENDING
+ #endif
+-
++*/
+ #include "lib/light/lighting.glsl"
+ #include "lib/material/parallax.glsl"
+ #include "lib/material/alpha.glsl"
+@@ -109,11 +109,11 @@ uniform float softFalloffDepth;
+ 
+ #if @particleOcclusion
+ #include "lib/particle/occlusion.glsl"
+-uniform sampler2D orthoDepthMap;
++uniform highp sampler2D orthoDepthMap;
+ varying vec3 orthoDepthMapCoord;
+ #endif
+ 
+-uniform sampler2D opaqueDepthTex;
++uniform highp sampler2D opaqueDepthTex;
+ 
+ void main()
+ {
+@@ -169,7 +169,7 @@ vec2 screenCoords = gl_FragCoord.xy / screenRes;
+ #if @normalMap
+     vec3 viewNormal = normalToView(texture2D(normalMap, normalMapUV + offset).xyz * 2.0 - 1.0);
+ #else
+-    vec3 viewNormal = normalize(gl_NormalMatrix * passNormal);
++    vec3 viewNormal = normalToView(normalize(passNormal));
+ #endif
+ 
+     vec3 viewVec = normalize(passViewPos);
+diff --git a/files/shaders/compatibility/objects.vert b/files/shaders/compatibility/objects.vert
+index 081ff909cf0..2bebcd60bf2 100644
+--- a/files/shaders/compatibility/objects.vert
++++ b/files/shaders/compatibility/objects.vert
+@@ -101,7 +101,7 @@ void main(void)
+ #endif
+ 
+ #if @envMap || !PER_PIXEL_LIGHTING || @shadows_enabled
+-    vec3 viewNormal = normalize(gl_NormalMatrix * passNormal);
++    vec3 viewNormal = normalToView(passNormal);
+ #endif
+ 
+ #if @envMap
+diff --git a/files/shaders/compatibility/terrain.frag b/files/shaders/compatibility/terrain.frag
+index abc7425eb05..38b985223e4 100644
+--- a/files/shaders/compatibility/terrain.frag
++++ b/files/shaders/compatibility/terrain.frag
+@@ -65,7 +65,7 @@ void main()
+ #if @normalMap
+     vec3 viewNormal = normalToView(texture2D(normalMap, adjustedUV).xyz * 2.0 - 1.0);
+ #else
+-    vec3 viewNormal = normalize(gl_NormalMatrix * passNormal);
++    vec3 viewNormal = normalToView(normalize(passNormal));
+ #endif
+ 
+     float shadowing = unshadowedLightRatio(linearDepth);
+diff --git a/files/shaders/compatibility/terrain.vert b/files/shaders/compatibility/terrain.vert
+index cbfb7769ba5..3b2cb16db49 100644
+--- a/files/shaders/compatibility/terrain.vert
++++ b/files/shaders/compatibility/terrain.vert
+@@ -52,7 +52,7 @@ void main(void)
+ #endif
+ 
+ #if !PER_PIXEL_LIGHTING || @shadows_enabled
+-    vec3 viewNormal = normalize(gl_NormalMatrix * passNormal);
++    vec3 viewNormal = normalToView(passNormal);
+ #endif
+ 
+ #if !PER_PIXEL_LIGHTING
+diff --git a/files/shaders/compatibility/water.frag b/files/shaders/compatibility/water.frag
+index c971f92b997..5817b0c5aef 100644
+--- a/files/shaders/compatibility/water.frag
++++ b/files/shaders/compatibility/water.frag
+@@ -17,8 +17,6 @@
+ // tweakables -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+ 
+ const float VISIBILITY = 2500.0;
+-const float VISIBILITY_DEPTH = VISIBILITY * 1.5;
+-const float DEPTH_FADE = 0.15;
+ 
+ const float BIG_WAVES_X = 0.1; // strength of big waves
+ const float BIG_WAVES_Y = 0.1;
+@@ -50,7 +48,6 @@ const float SUN_SPEC_FADING_THRESHOLD = 0.15;       // visibility at which sun s
+ const float SPEC_HARDNESS = 256.0;                 // specular highlights hardness
+ 
+ const float BUMP_SUPPRESS_DEPTH = 300.0;           // at what water depth bumpmap will be suppressed for reflections and refractions (prevents artifacts at shores)
+-const float REFR_FOG_DISTORT_DISTANCE = 3000.0;    // at what distance refraction fog will be calculated using real water depth instead of distorted depth (prevents splotchy shores)
+ 
+ const vec2 WIND_DIR = vec2(0.5f, -0.8f);
+ const float WIND_SPEED = 0.2f;
+@@ -163,10 +160,9 @@ void main(void)
+     vec2 screenCoordsOffset = normal.xy * REFL_BUMP;
+ #if REFRACTION
+     float depthSample = linearizeDepth(sampleRefractionDepthMap(screenCoords), near, far) * radialise;
++    float depthSampleDistorted = linearizeDepth(sampleRefractionDepthMap(screenCoords-screenCoordsOffset), near, far) * radialise;
+     float surfaceDepth = linearizeDepth(gl_FragCoord.z, near, far) * radialise;
+     float realWaterDepth = depthSample - surfaceDepth;  // undistorted water depth in view direction, independent of frustum
+-    float depthSampleDistorted = linearizeDepth(sampleRefractionDepthMap(screenCoords - screenCoordsOffset), near, far) * radialise;
+-    float waterDepthDistorted = max(depthSampleDistorted - surfaceDepth, 0.0);
+     screenCoordsOffset *= clamp(realWaterDepth / BUMP_SUPPRESS_DEPTH,0,1);
+ #endif
+     // reflection
+@@ -189,16 +185,6 @@ void main(void)
+     // no alpha here, so make sure raindrop ripple specularity gets properly subdued
+     rainSpecular *= clamp(fresnel*6.0 + specular * sunSpec.a, 0.0, 1.0);
+ 
+-    // selectively nullify screenCoordsOffset to eliminate remaining shore artifacts, not needed for reflection
+-    if (cameraPos.z > 0.0 && realWaterDepth <= VISIBILITY_DEPTH && waterDepthDistorted > VISIBILITY_DEPTH)
+-        screenCoordsOffset = vec2(0.0);
+-
+-    depthSampleDistorted = linearizeDepth(sampleRefractionDepthMap(screenCoords - screenCoordsOffset), near, far) * radialise;
+-    waterDepthDistorted = max(depthSampleDistorted - surfaceDepth, 0.0);
+-
+-    // fade to realWaterDepth at a distance to compensate for physically inaccurate depth calculation
+-    waterDepthDistorted = mix(waterDepthDistorted, realWaterDepth, min(surfaceDepth / REFR_FOG_DISTORT_DISTANCE, 1.0));
+-
+     // refraction
+     vec3 refraction = sampleRefractionMap(screenCoords - screenCoordsOffset).rgb;
+     vec3 rawRefraction = refraction;
+@@ -207,11 +193,7 @@ void main(void)
+     if (cameraPos.z < 0.0)
+         refraction = clamp(refraction * 1.5, 0.0, 1.0);
+     else
+-    {
+-        float depthCorrection = sqrt(1.0 + 4.0 * DEPTH_FADE * DEPTH_FADE);
+-        float factor = DEPTH_FADE * DEPTH_FADE / (-0.5 * depthCorrection + 0.5 - waterDepthDistorted / VISIBILITY) + 0.5 * depthCorrection + 0.5;
+-        refraction = mix(refraction, waterColor, clamp(factor, 0.0, 1.0));
+-    }
++        refraction = mix(refraction, waterColor, clamp(depthSampleDistorted/VISIBILITY, 0.0, 1.0));
+ 
+     // sunlight scattering
+     // normal for sunlight scattering
+diff --git a/files/shaders/lib/core/fragment.h.glsl b/files/shaders/lib/core/fragment.h.glsl
+index 1bc2a1f79ab..de41dbc7ab1 100644
+--- a/files/shaders/lib/core/fragment.h.glsl
++++ b/files/shaders/lib/core/fragment.h.glsl
+@@ -1,20 +1,43 @@
+ #ifndef OPENMW_FRAGMENT_H_GLSL
+ #define OPENMW_FRAGMENT_H_GLSL
+ 
+-@link "lib/core/fragment.glsl" if !@useOVR_multiview
+-@link "lib/core/fragment_multiview.glsl" if @useOVR_multiview
++uniform sampler2D reflectionMap;
+ 
+-vec4 sampleReflectionMap(vec2 uv);
++vec4 sampleReflectionMap(vec2 uv)
++{
++    return texture2D(reflectionMap, uv);
++}
+ 
+ #if @refraction_enabled
+-vec4 sampleRefractionMap(vec2 uv);
+-float sampleRefractionDepthMap(vec2 uv);
++uniform sampler2D refractionMap;
++uniform highp sampler2D refractionDepthMap;
++
++vec4 sampleRefractionMap(vec2 uv)
++{
++    return texture2D(refractionMap, uv);
++}
++
++float sampleRefractionDepthMap(vec2 uv)
++{
++    return texture2D(refractionDepthMap, uv).x;
++}
++
+ #endif
+ 
+-vec4 samplerLastShader(vec2 uv);
++uniform sampler2D lastShader;
++
++vec4 samplerLastShader(vec2 uv)
++{
++    return texture2D(lastShader, uv);
++}
+ 
+ #if @skyBlending
+-vec3 sampleSkyColor(vec2 uv);
++uniform sampler2D sky;
++
++vec3 sampleSkyColor(vec2 uv)
++{
++    return texture2D(sky, uv).xyz;
++}
+ #endif
+ 
+ #endif  // OPENMW_FRAGMENT_H_GLSL
+diff --git a/files/shaders/lib/core/vertex.h.glsl b/files/shaders/lib/core/vertex.h.glsl
+index 6e22f6deb15..c8a1080574d 100644
+--- a/files/shaders/lib/core/vertex.h.glsl
++++ b/files/shaders/lib/core/vertex.h.glsl
+@@ -1,6 +1,16 @@
+-@link "lib/core/vertex.glsl" if !@useOVR_multiview
+-@link "lib/core/vertex_multiview.glsl" if @useOVR_multiview
++uniform mat4 projectionMatrix;
+ 
+-vec4 modelToClip(vec4 pos);
+-vec4 modelToView(vec4 pos);
+-vec4 viewToClip(vec4 pos);
++vec4 modelToView(vec4 pos)
++{
++    return gl_ModelViewMatrix * pos;
++}
++
++vec4 modelToClip(vec4 pos)
++{
++    return projectionMatrix * modelToView(pos);
++}
++
++vec4 viewToClip(vec4 pos)
++{
++    return projectionMatrix * pos;
++}

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="Engine">
+        <ListPreference
+            android:key="gs_groundcover_handling"
+            android:summary="%s \nEnable some special settings for groundcover mods (rendering distance, density). Also enable animation and disable colision for groundcover meshes. Require to load groundcover mods via Groundcovers tab in mod manager"
+            android:title="Groundcover Handling"
+            android:dialogTitle="Groundcover Handling"
+            android:entries="@array/gs_groundcover_handling_entries"
+            android:entryValues="@array/gs_groundcover_handling_values"
+            android:defaultValue="0" />
+
+        <CheckBoxPreference
+            android:key="gs_build_navmesh"
+            android:title="Build Navmesh for World Geometry"
+            android:defaultValue="true"
+            android:summary="Enable navigator. When enabled background threads are started to build nav mesh for world geometry. Pathfinding system uses nav mesh to build paths. When disabled only pathgrid is used to build paths. Single-core CPU systems may have big performance impact on exiting interior location and moving across exterior world. May slightly affect performance on multi-core CPU systems. Multi-core CPU systems may have different latency for nav mesh update depending on other settings and system performance. Moving across external world, entering/exiting location produce nav mesh update. NPC and creatures may not be able to find path before nav mesh is built around them. Try to disable this if you want to have old fashioned AI which doesn’t know where to go when you stand behind that stone and casting a firebolt." />
+
+        <CheckBoxPreference
+            android:key="gs_write_navmesh"
+            android:title="Write Navmesh Cache to Disk"
+            android:defaultValue="false"
+            android:summary="Cache navigation mesh tiles to disk" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Threading">
+
+        <Preference
+            android:key="gs_navmesh_threads"
+            android:title="Background Navmesh Threads"
+            android:summary="Number of background threads to update nav mesh. Adjustable from 1 to 8; default is 1." />
+
+        <Preference
+            android:key="gs_physics_threads"
+            android:title="Background Physics Threads"
+            android:summary="Number of background threads used for physics updates. Adjustable from 1 to 8; default is 1." />
+
+        <Preference
+            android:key="gs_preload_threads"
+            android:title="Background Preload Threads"
+            android:summary="Number of threads used for preloading operations. Adjustable from 1 to 8; default is 1." />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

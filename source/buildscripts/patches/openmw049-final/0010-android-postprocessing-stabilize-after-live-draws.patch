@@ -1,0 +1,126 @@
+diff --git a/apps/openmw/mwrender/postprocessor.cpp b/apps/openmw/mwrender/postprocessor.cpp
+--- a/apps/openmw/mwrender/postprocessor.cpp
++++ b/apps/openmw/mwrender/postprocessor.cpp
+@@ -71,6 +71,25 @@ namespace
+     };
+ #endif
+ 
++#ifdef ANDROID
++    class AndroidPostProcessingStabilizeDrawCallback : public osg::Camera::DrawCallback
++    {
++    public:
++        explicit AndroidPostProcessingStabilizeDrawCallback(MWRender::PostProcessor* postProcessor)
++            : mPostProcessor(postProcessor)
++        {
++        }
++
++        void operator()(osg::RenderInfo&) const override
++        {
++            mPostProcessor->signalAndroidPostProcessingStabilizeDraw();
++        }
++
++    private:
++        MWRender::PostProcessor* mPostProcessor;
++    };
++#endif
++
+     class HUDCullCallback : public SceneUtil::NodeCallback<HUDCullCallback, osg::Camera*, osgUtil::CullVisitor*>
+     {
+     public:
+@@ -217,6 +236,16 @@ namespace MWRender
+ 
+         setCullCallback(mStateUpdater);
+ 
++#ifdef ANDROID
++        if (mUsePostProcessing)
++        {
++            mAndroidPostProcessingStabilizePending.store(true, std::memory_order_release);
++            mAndroidPostProcessingCompletedDraws.store(0, std::memory_order_release);
++            mViewer->getCamera()->setFinalDrawCallback(new AndroidPostProcessingStabilizeDrawCallback(this));
++            Log(Debug::Info) << "Android post-processing startup stabilization v13.23 armed";
++        }
++#endif
++
+ #ifdef ANDROID
+         // A valid cull viewport is not enough on Android/GL4ES: the graphics
+         // context can already have its final size while the first post-process
+@@ -283,6 +314,8 @@ namespace MWRender
+     void PostProcessor::disable()
+     {
+ #ifdef ANDROID
++        mAndroidPostProcessingStabilizePending.store(false, std::memory_order_release);
++        mAndroidPostProcessingCompletedDraws.store(0, std::memory_order_release);
+         mAndroidPostProcessingStartupPending.store(false, std::memory_order_release);
+         mAndroidPostProcessingWarmupDrawComplete.store(false, std::memory_order_release);
+ #endif
+@@ -300,6 +333,14 @@ namespace MWRender
+     }
+ #endif
+ 
++#ifdef ANDROID
++    void PostProcessor::signalAndroidPostProcessingStabilizeDraw()
++    {
++        if (mAndroidPostProcessingStabilizePending.load(std::memory_order_acquire))
++            mAndroidPostProcessingCompletedDraws.fetch_add(1, std::memory_order_acq_rel);
++    }
++#endif
++
+     void PostProcessor::traverse(osg::NodeVisitor& nv)
+     {
+         size_t frameId = nv.getTraversalNumber() % 2;
+@@ -367,6 +409,30 @@ namespace MWRender
+ 
+         updateLiveReload();
+ 
++#ifdef ANDROID
++        if (mUsePostProcessing && mAndroidPostProcessingStabilizePending.load(std::memory_order_acquire)
++            && mAndroidPostProcessingCompletedDraws.load(std::memory_order_acquire) >= 4)
++        {
++            mAndroidPostProcessingStabilizePending.store(false, std::memory_order_release);
++            mAndroidPostProcessingCompletedDraws.store(0, std::memory_order_release);
++
++            if (const osg::Viewport* viewport = mViewer->getCamera()->getViewport())
++            {
++                const int width = static_cast<int>(viewport->width());
++                const int height = static_cast<int>(viewport->height());
++                if (width > 0 && height > 0)
++                    setRenderTargetSize(width, height);
++            }
++
++            // Re-run OpenMW's normal chain/FBO rebuild only after several
++            // actual completed draws. This mirrors the useful part of the
++            // user's successful manual OFF -> ON cycle without a visible toggle.
++            mReload = true;
++            Log(Debug::Info) << "Android post-processing startup stabilization: scheduling final chain rebuild after 4 completed draws at "
++                             << mWidth << "x" << mHeight;
++        }
++#endif
++
+ #ifdef ANDROID
+         if (mAndroidPostProcessingStartupPending.load(std::memory_order_acquire)
+             && mAndroidPostProcessingWarmupDrawComplete.exchange(false, std::memory_order_acq_rel))
+diff --git a/apps/openmw/mwrender/postprocessor.hpp b/apps/openmw/mwrender/postprocessor.hpp
+--- a/apps/openmw/mwrender/postprocessor.hpp
++++ b/apps/openmw/mwrender/postprocessor.hpp
+@@ -194,6 +194,10 @@ namespace MWRender
+ #ifdef ANDROID
+         void signalAndroidPostProcessingWarmupDraw();
+ #endif
++
++#ifdef ANDROID
++        void signalAndroidPostProcessingStabilizeDraw();
++#endif
+ 
+     private:
+         void populateTechniqueFiles();
+@@ -237,6 +241,10 @@ namespace MWRender
+         std::atomic_bool mAndroidPostProcessingStartupPending{ false };
+         std::atomic_bool mAndroidPostProcessingWarmupDrawComplete{ false };
+ #endif
++#ifdef ANDROID
++        std::atomic_bool mAndroidPostProcessingStabilizePending{ false };
++        std::atomic_uint mAndroidPostProcessingCompletedDraws{ 0 };
++#endif
+ 
+         bool mUBO = false;
+         bool mHDR = false;
