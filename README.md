@@ -21,13 +21,16 @@ The goal is a clean, controller-friendly Morrowind experience on **Android handh
 
 ## ⚔️ Highlights
 
-- **OpenMW 0.50** engine updates integrated into the Android port
-- Optimized **Android & ChromeOS** launcher and input handling
-- Improved **gamepad, mouse and touch** support
-- Configurable resolution and performance options
-- Four selectable shader presets: **Original, Modified, Zesterer and OMWFX**
-- Enhanced **OMWFX post-processing** with an additional custom **Lens Flare** effect
-- Designed for modern Android gaming devices while retaining broad OpenMW compatibility
+- ⚙️ **OpenMW 0.50.0 Final** engine integrated into the Android port
+- 📱 Optimized for **Android handhelds, tablets, TV devices and ChromeOS**
+- 🎮 Improved **gamepad, touch, keyboard and physical mouse** support
+- 🖥️ Extended launcher with direct access to **gameplay, visual, shadow, interface and engine settings**
+- 📐 Configurable **resolution, UI scaling, framerate and performance options**
+- 🌑 Android-compatible **dynamic shadows** with selectable quality and distance presets
+- 🎨 Four shader presets: **Original, Modified, Zesterer and OMWFX**
+- ✨ Enhanced **OMWFX post-processing** with **WetWorld, RainLens, Godrays, Bloom and custom Lens Flare**
+- 🧩 Support for **mods, custom data files, shader presets and environment flags**
+- 🔧 Android-specific fixes for **GLES2/GL4ES, post-processing and depth handling**
 
 ## 🎨 OMWFX Shaders
 
