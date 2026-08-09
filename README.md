@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🧭 OpenMW for Android & ChromeOS
+<img src="https://github.com/Andiweli/OpenMW/blob/main/images/openmw.png" width="120" height="120" valign="middle" alt="Logo">
+<h1 align="center">OpenMW for Android & ChromeOS</h1>
+
 
 **Morrowind on Android and ChromeOS with OpenMW 0.50, improved controls and enhanced OMWFX shaders.**
 
