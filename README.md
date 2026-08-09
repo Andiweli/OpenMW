@@ -4,10 +4,12 @@
 
 **Morrowind on Android and ChromeOS with OpenMW 0.50, improved controls and enhanced OMWFX shaders.**
 
-![Android](https://img.shields.io/badge/Android-OpenMW-3DDC84?logo=android&logoColor=white)
+![OS](https://img.shields.io/badge/up%20to-Android%2016-green)
+![Architecture](https://img.shields.io/badge/architecture-32/64bit-orange.svg)
 ![ChromeOS](https://img.shields.io/badge/ChromeOS-Supported-4285F4?logo=googlechrome&logoColor=white)
-![OpenMW](https://img.shields.io/badge/OpenMW-0.50-C69C6D)
-![OMWFX](https://img.shields.io/badge/OMWFX-Lens%20Flare-8B6F47)
+![AI Assisted Coding](https://img.shields.io/badge/AI-Assisted%20Coding-white)
+![Controller](https://img.shields.io/badge/Controls-Controller/Touch/Keyboard-blueviolet)
+
 
 </div>
 
