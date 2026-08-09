@@ -39,7 +39,7 @@ The goal is a clean, controller-friendly Morrowind experience on **Android handh
 - 📐 Configurable **resolution, UI scaling, framerate and performance options**
 - 🌑 Android-compatible **dynamic shadows** with selectable quality and distance presets
 - 🎨 Four shader presets: **Original, Modified, Zesterer and OMWFX**
-- ✨ Enhanced **OMWFX post-processing** with **WetWorld, RainLens, Godrays, Bloom and custom Lens Flare**
+- ✨ Enhanced **OMWFX post-processing** with **WetWorld, RainLens, Godrays, Bloom and Lens Flare**
 - 🧩 Support for **mods, custom data files, shader presets and environment flags**
 - 🔧 Android-specific fixes for **GLES2/GL4ES, post-processing and depth handling**
 
