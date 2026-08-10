@@ -32,13 +32,6 @@ import android.preference.EditTextPreference
 import android.preference.Preference
 import android.preference.PreferenceFragment
 import android.preference.PreferenceGroup
-import android.text.InputType
-import android.view.Gravity
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.SeekBar
-import android.widget.TextView
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 
 import com.codekidlabs.storagechooser.StorageChooser
@@ -61,41 +54,6 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
         preferenceScreen.sharedPreferences.registerOnSharedPreferenceChangeListener(this)
 
         updateGammaState()
-
-        // Make launcher entries that open another screen visually distinct.
-        listOf("pref_game_settings", "pref_mods", "pref_controls").forEach { key ->
-            findPreference(key)?.widgetLayoutResource = R.layout.preference_widget_chevron
-        }
-
-        findPreference("pref_uiScaling").setOnPreferenceClickListener {
-            showSteppedSliderPreference(
-                key = "pref_uiScaling",
-                title = getString(R.string.pref_uiScaling),
-                minimum = 0.5f,
-                maximum = 3.0f,
-                step = 0.1f,
-                defaultValue = MyApp.app.defaultScaling.coerceIn(0.5f, 3.0f),
-                neutralLabel = "Auto"
-            )
-            true
-        }
-
-        findPreference("pref_customResolution").setOnPreferenceClickListener {
-            showCustomResolutionDialog()
-            true
-        }
-
-        findPreference("pref_gamma").setOnPreferenceClickListener {
-            showSteppedSliderPreference(
-                key = "pref_gamma",
-                title = getString(R.string.pref_gamma),
-                minimum = 1.0f,
-                maximum = 3.0f,
-                step = 0.1f,
-                defaultValue = 1.0f
-            )
-            true
-        }
 
         findPreference("pref_controls").setOnPreferenceClickListener {
             val intent = Intent(activity, ConfigureControls::class.java)
@@ -149,209 +107,6 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
             }
             true
         }
-    }
-
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density + 0.5f).toInt()
-
-    private fun showSteppedSliderPreference(
-        key: String,
-        title: String,
-        minimum: Float,
-        maximum: Float,
-        step: Float,
-        defaultValue: Float,
-        neutralLabel: String? = null
-    ) {
-        val sharedPref = preferenceScreen.sharedPreferences
-        val current = sharedPref.getString(key, "")
-            ?.toFloatOrNull()
-            ?.coerceIn(minimum, maximum)
-            ?: defaultValue.coerceIn(minimum, maximum)
-
-        val steps = kotlin.math.round((maximum - minimum) / step).toInt()
-        val initialProgress = kotlin.math.round((current - minimum) / step)
-            .toInt()
-            .coerceIn(0, steps)
-
-        val valueLabel = TextView(activity).apply {
-            textSize = 18f
-            gravity = Gravity.CENTER
-        }
-
-        val seekBar = SeekBar(activity).apply {
-            max = steps
-            progress = initialProgress
-        }
-
-        fun valueForProgress(progress: Int): Float =
-            (minimum + progress * step).coerceIn(minimum, maximum)
-
-        fun updateLabel(progress: Int) {
-            valueLabel.text = String.format(Locale.ROOT, "%.1f", valueForProgress(progress))
-        }
-
-        updateLabel(initialProgress)
-
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
-                updateLabel(progress)
-            }
-
-            override fun onStartTrackingTouch(bar: SeekBar?) = Unit
-            override fun onStopTrackingTouch(bar: SeekBar?) = Unit
-        })
-
-        val content = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(16), dp(24), dp(8))
-            addView(
-                valueLabel,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            )
-            addView(
-                seekBar,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = dp(8) }
-            )
-
-            val limits = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                addView(
-                    TextView(activity).apply {
-                        text = String.format(Locale.ROOT, "%.1f", minimum)
-                    },
-                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                )
-                addView(
-                    TextView(activity).apply {
-                        text = String.format(Locale.ROOT, "%.1f", maximum)
-                        gravity = Gravity.END
-                    },
-                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                )
-            }
-            addView(
-                limits,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            )
-        }
-
-        val builder = AlertDialog.Builder(activity)
-            .setTitle(title)
-            .setView(content)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                sharedPref.edit()
-                    .putString(
-                        key,
-                        String.format(Locale.ROOT, "%.1f", valueForProgress(seekBar.progress))
-                    )
-                    .apply()
-                updatePreference(findPreference(key), key)
-            }
-
-        if (neutralLabel != null) {
-            builder.setNeutralButton(neutralLabel) { _, _ ->
-                sharedPref.edit().putString(key, "").apply()
-                updatePreference(findPreference(key), key)
-            }
-        }
-
-        builder.show()
-    }
-
-    private fun showCustomResolutionDialog() {
-        val sharedPref = preferenceScreen.sharedPreferences
-        val current = sharedPref.getString("pref_customResolution", "") ?: ""
-        val match = Regex("""^\s*(\d+)\s*[xX×]\s*(\d+)\s*$""").matchEntire(current)
-
-        val widthInput = EditText(activity).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER
-            hint = "Width"
-            gravity = Gravity.CENTER
-            setSingleLine(true)
-            match?.groupValues?.getOrNull(1)?.let { setText(it) }
-        }
-
-        val separator = TextView(activity).apply {
-            text = "×"
-            textSize = 20f
-            gravity = Gravity.CENTER
-            setPadding(dp(10), 0, dp(10), 0)
-        }
-
-        val heightInput = EditText(activity).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER
-            hint = "Height"
-            gravity = Gravity.CENTER
-            setSingleLine(true)
-            match?.groupValues?.getOrNull(2)?.let { setText(it) }
-        }
-
-        val row = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(20), dp(10), dp(20), dp(4))
-            addView(
-                widthInput,
-                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            )
-            addView(
-                separator,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            )
-            addView(
-                heightInput,
-                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            )
-        }
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(getString(R.string.pref_customResolution))
-            .setView(row)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setNeutralButton("Native") { _, _ ->
-                sharedPref.edit().putString("pref_customResolution", "").apply()
-                updatePreference(findPreference("pref_customResolution"), "pref_customResolution")
-            }
-            .setPositiveButton(android.R.string.ok, null)
-            .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val width = widthInput.text.toString().toIntOrNull()
-                val height = heightInput.text.toString().toIntOrNull()
-
-                if (width == null || height == null || width <= 0 || height <= 0) {
-                    Toast.makeText(
-                        activity,
-                        "Please enter a valid width and height.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@setOnClickListener
-                }
-
-                sharedPref.edit()
-                    .putString("pref_customResolution", "${width}x${height}")
-                    .apply()
-                updatePreference(findPreference("pref_customResolution"), "pref_customResolution")
-                dialog.dismiss()
-            }
-        }
-
-        dialog.show()
     }
 
     /**
@@ -430,28 +185,13 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
     private fun updatePreference(preference: Preference?, key: String) {
         if (preference == null)
             return
-        val sharedPref = preference.sharedPreferences
-        when (key) {
-            "pref_uiScaling" -> {
-                val value = sharedPref.getString(key, "") ?: ""
-                preference.summary = if (value.isEmpty()) {
-                    MyApp.app.getString(R.string.uiScaling_auto)
-                        .format(Locale.ROOT, MyApp.app.defaultScaling)
-                } else {
-                    value
-                }
-            }
-            "pref_customResolution" -> {
-                val value = sharedPref.getString(key, "") ?: ""
-                preference.summary = if (value.isEmpty()) "Native" else value.replace('x', '×')
-            }
-            "pref_gamma" -> {
-                val value = sharedPref.getString(key, "") ?: ""
-                preference.summary = if (value.isEmpty()) "1.0" else value
-            }
-            else -> if (preference is EditTextPreference) {
+        if (preference is EditTextPreference) {
+            if (key == "pref_uiScaling" && (preference.text == null || preference.text.isEmpty()))
+                // Show "Auto (1.23)"
+                preference.summary = MyApp.app.getString(R.string.uiScaling_auto)
+                    .format(Locale.ROOT, MyApp.app.defaultScaling)
+            else
                 preference.summary = preference.text
-            }
         }
         // Show selected value as a summary for game_files
         if (key == "game_files") {

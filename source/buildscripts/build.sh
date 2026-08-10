@@ -207,8 +207,8 @@ if [[ $DEPLOY_RESOURCES = "true" ]]; then
 	# Immutable engine marker consumed by app/build.gradle. Prevents accidentally
 	# packaging the old CaveBros 2024 development libopenmw.so after this upgrade.
 	cat > "$DST/openmw/openmw-engine-version.txt" <<'EOF'
-OpenMW 0.50.0 Final
-commit=47d78e004bc182def2904986f8bb54aea1f4b3ae
+OpenMW 0.49.0 Final
+commit=675146bd8bce6245d78889f543b5c02a1e3936fe
 EOF
 
 	# licensing info

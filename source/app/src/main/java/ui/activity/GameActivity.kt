@@ -91,8 +91,6 @@ class GameActivity : SDLActivity() {
     private var chromeOsVirtualMouseValid = false
     private var chromeOsLastMouseShown = -1
     private var chromeOsCapturedEventSeen = false
-    private var chromeOsGameplayMouseResidualX = 0.0f
-    private var chromeOsGameplayMouseResidualY = 0.0f
 
     private val chromeOsPointerCaptureWatchdog = object : Runnable {
         override fun run() {
@@ -295,10 +293,7 @@ class GameActivity : SDLActivity() {
         chromeOsPointerCaptureHandler.removeCallbacks(chromeOsPointerCaptureWatchdog)
         chromeOsPointerCaptureHandler.post(chromeOsPointerCaptureWatchdog)
 
-        Log.i(
-            DIAG_TAG,
-            "ChromeOS pointer-capture bridge installed; menuCursorGain=$CHROMEOS_MENU_CURSOR_GAIN"
-        )
+        Log.i(DIAG_TAG, "ChromeOS pointer-capture bridge installed.")
     }
 
     private fun ensureChromeOsPointerCapture() {
@@ -333,11 +328,6 @@ class GameActivity : SDLActivity() {
             syncChromeOsVirtualMouseFromNative()
         }
 
-        if (mouseShown != chromeOsLastMouseShown) {
-            // Do not carry fractional freelook motion across a GUI/gameplay mode switch.
-            chromeOsGameplayMouseResidualX = 0.0f
-            chromeOsGameplayMouseResidualY = 0.0f
-        }
         chromeOsLastMouseShown = mouseShown
 
         var action = event.actionMasked
@@ -352,18 +342,7 @@ class GameActivity : SDLActivity() {
             MotionEvent.ACTION_HOVER_MOVE,
             MotionEvent.ACTION_MOVE -> {
                 if (menuCursorMode) {
-                    // Captured MotionEvents may contain batched historical samples. Summing all
-                    // samples prevents ChromeOS movement from being lost before it reaches SDL.
-                    var deltaX = 0.0f
-                    var deltaY = 0.0f
-                    for (historyIndex in 0 until event.historySize) {
-                        deltaX += chromeOsCapturedDeltaX(event, historyIndex)
-                        deltaY += chromeOsCapturedDeltaY(event, historyIndex)
-                    }
-                    deltaX += chromeOsCapturedDeltaX(event, -1)
-                    deltaY += chromeOsCapturedDeltaY(event, -1)
-
-                    moveChromeOsVirtualMouse(deltaX, deltaY)
+                    moveChromeOsVirtualMouse(event.x, event.y)
                     SDLActivity.onNativeMouse(
                         0,
                         action,
@@ -372,35 +351,21 @@ class GameActivity : SDLActivity() {
                         false
                     )
                 } else {
-                    // SDL 2.0.22 converts Android relative mouse coordinates to integers.
-                    // Feed every batched sample through a fractional accumulator so sub-pixel
-                    // motion is preserved instead of being truncated on each event.
-                    for (historyIndex in 0 until event.historySize) {
-                        dispatchChromeOsGameplayMouseDelta(
-                            action,
-                            chromeOsCapturedDeltaX(event, historyIndex),
-                            chromeOsCapturedDeltaY(event, historyIndex)
-                        )
-                    }
-                    dispatchChromeOsGameplayMouseDelta(
-                        action,
-                        chromeOsCapturedDeltaX(event, -1),
-                        chromeOsCapturedDeltaY(event, -1)
-                    )
+                    // Android pointer capture reports unbounded relative movement.
+                    // Preserve the working SDL/OpenMW freelook path without scaling.
+                    SDLActivity.onNativeMouse(0, action, event.x, event.y, true)
                 }
                 return true
             }
 
             MotionEvent.ACTION_BUTTON_PRESS,
-            MotionEvent.ACTION_BUTTON_RELEASE -> {
-                // Match SDL's own captured-pointer implementation. ACTION_DOWN/ACTION_UP may
-                // describe the same physical mouse click as these generic button events and
-                // forwarding both can feed the release that opened OpenMW's rebind dialog
-                // straight back into its binding detector as Mouse Left.
-                action = if (action == MotionEvent.ACTION_BUTTON_PRESS) {
-                    MotionEvent.ACTION_DOWN
-                } else {
-                    MotionEvent.ACTION_UP
+            MotionEvent.ACTION_BUTTON_RELEASE,
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_UP -> {
+                if (action == MotionEvent.ACTION_BUTTON_PRESS) {
+                    action = MotionEvent.ACTION_DOWN
+                } else if (action == MotionEvent.ACTION_BUTTON_RELEASE) {
+                    action = MotionEvent.ACTION_UP
                 }
 
                 val button = event.buttonState
@@ -416,62 +381,13 @@ class GameActivity : SDLActivity() {
                         false
                     )
                 } else {
-                    SDLActivity.onNativeMouse(button, action, 0.0f, 0.0f, true)
+                    SDLActivity.onNativeMouse(button, action, event.x, event.y, true)
                 }
-                return true
-            }
-
-            MotionEvent.ACTION_DOWN,
-            MotionEvent.ACTION_UP -> {
-                // Captured mouse buttons are represented by ACTION_BUTTON_PRESS/RELEASE.
-                // Consume the touch-style duplicate stream instead of forwarding it twice.
                 return true
             }
         }
 
         return false
-    }
-
-    private fun chromeOsCapturedDeltaX(event: MotionEvent, historyIndex: Int): Float {
-        val relative = if (historyIndex >= 0) {
-            event.getHistoricalAxisValue(MotionEvent.AXIS_RELATIVE_X, 0, historyIndex)
-        } else {
-            event.getAxisValue(MotionEvent.AXIS_RELATIVE_X, 0)
-        }
-        if (relative != 0.0f) {
-            return relative
-        }
-
-        // Some ChromeOS/Android builds expose captured deltas through X/Y instead.
-        return if (historyIndex >= 0) event.getHistoricalX(0, historyIndex) else event.getX(0)
-    }
-
-    private fun chromeOsCapturedDeltaY(event: MotionEvent, historyIndex: Int): Float {
-        val relative = if (historyIndex >= 0) {
-            event.getHistoricalAxisValue(MotionEvent.AXIS_RELATIVE_Y, 0, historyIndex)
-        } else {
-            event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y, 0)
-        }
-        if (relative != 0.0f) {
-            return relative
-        }
-
-        // Some ChromeOS/Android builds expose captured deltas through X/Y instead.
-        return if (historyIndex >= 0) event.getHistoricalY(0, historyIndex) else event.getY(0)
-    }
-
-    private fun dispatchChromeOsGameplayMouseDelta(action: Int, deltaX: Float, deltaY: Float) {
-        chromeOsGameplayMouseResidualX += deltaX
-        chromeOsGameplayMouseResidualY += deltaY
-
-        val wholeX = chromeOsGameplayMouseResidualX.toInt()
-        val wholeY = chromeOsGameplayMouseResidualY.toInt()
-        chromeOsGameplayMouseResidualX -= wholeX.toFloat()
-        chromeOsGameplayMouseResidualY -= wholeY.toFloat()
-
-        if (wholeX != 0 || wholeY != 0) {
-            SDLActivity.onNativeMouse(0, action, wholeX.toFloat(), wholeY.toFloat(), true)
-        }
     }
 
     private fun syncChromeOsVirtualMouseFromNative() {
@@ -502,12 +418,8 @@ class GameActivity : SDLActivity() {
 
         // Captured deltas are physical View pixels. Convert them to the logical
         // OpenMW render space so cursor speed stays correct with custom resolutions.
-        // Pointer capture does not inherit ChromeOS' normal desktop pointer acceleration,
-        // which makes the absolute OpenMW menu cursor feel noticeably slower than freelook.
-        // Apply a ChromeOS-only gain here. The relative gameplay/freelook path above remains
-        // completely unscaled.
-        val logicalDeltaX = deltaX * (bounds.first / viewWidth) * CHROMEOS_MENU_CURSOR_GAIN
-        val logicalDeltaY = deltaY * (bounds.second / viewHeight) * CHROMEOS_MENU_CURSOR_GAIN
+        val logicalDeltaX = deltaX * (bounds.first / viewWidth)
+        val logicalDeltaY = deltaY * (bounds.second / viewHeight)
 
         chromeOsVirtualMouseX =
             (chromeOsVirtualMouseX + logicalDeltaX).coerceIn(0.0f, bounds.first - 1.0f)
@@ -836,7 +748,6 @@ class GameActivity : SDLActivity() {
         private const val MAX_CONFIG_LOG_LINES = 120
         private const val NATIVE_LOG_BRIDGE_MILLIS = 120_000L
         private const val CHROMEOS_POINTER_CAPTURE_RETRY_MILLIS = 250L
-        private const val CHROMEOS_MENU_CURSOR_GAIN = 1.6f
 
         var mouseMode = MouseMode.Hybrid
     }

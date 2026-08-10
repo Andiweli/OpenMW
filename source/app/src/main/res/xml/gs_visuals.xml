@@ -3,10 +3,14 @@
 
     <PreferenceCategory android:title="Terrain">
 
-        <Preference
+        <EditTextPreference
             android:key="gs_object_paging_min_size"
             android:title="Object Paging Min Size"
-            android:summary="Controls how large an object must be to be visible in the scene. Adjustable from 0.01 to 1.00 in steps of 0.01." />
+            android:dialogTitle="Object Paging Min Size"
+            android:inputType="numberDecimal"
+            android:hint="0.010"
+            android:defaultValue="0.010"
+            android:summary="Controls how large an object must be to be visible in the scene. The object’s size is divided by its distance to the camera and the result of the division is compared with this value. The smaller this value is, the more objects you will see in the scene."/>
 
         <CheckBoxPreference
             android:key="gs_distant_land"
@@ -32,14 +36,14 @@
             android:entryValues="@array/gs_antialiasing_values"
             android:defaultValue="0" />
 -->
-        <ListPreference
-            android:key="pref_physicsFPS2"
-            android:title="@string/pref_physicsFPS2"
-            android:dialogTitle="@string/pref_physicsFPS2"
-            android:entries="@array/pref_physicsFPS2_entries"
-            android:entryValues="@array/pref_physicsFPS2_entries"
-            android:defaultValue="@string/pref_physicsFPS2_default"
-            android:summary="%s FPS"/>
+        <EditTextPreference
+            android:key="gs_framerate_limit"
+            android:title="Framerate Limit"
+            android:dialogTitle="Framerate Limit"
+            android:inputType="numberDecimal"
+            android:hint="60"
+            android:defaultValue="60"
+            android:summary="Maximum rendering framerate."/>
 
     </PreferenceCategory>
 

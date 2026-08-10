@@ -69,55 +69,14 @@ import android.content.res.Configuration
 class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
 
-    // v14.3 Skip GUI launch + v14.4 no-flash behavior restored in v14.6.2
-    private val skipGuiHandler =
-        android.os.Handler(android.os.Looper.getMainLooper())
-    private var skipGuiAutoLaunchPending = false
-    private var skipGuiOverrideRequested = false
-    private var skipGuiVolumeOverrideHeld = false
-    private var skipGuiDirectLaunchActive = false
-
-    private val skipGuiAutoLaunchRunnable = java.lang.Runnable {
-        if (!skipGuiAutoLaunchPending || skipGuiOverrideRequested || isFinishing) {
-            return@Runnable
-        }
-
-        skipGuiAutoLaunchPending = false
-        skipGuiDirectLaunchActive = true
-        Log.i(TAG, "Skip GUI: launching game directly after Volume Up override window.")
-        checkStartGame()
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MyApp.app.defaultScaling = determineScaling()
 
-        prefs = PreferenceManager.getDefaultSharedPreferences(this)
-
-        // Only a fresh app launch may auto-skip. Activity recreation while the
-        // launcher is already open must never unexpectedly start the game.
-        // First-run Bugsnag consent takes precedence over direct launch.
-        val bugsnagConsentMissing =
-            MyApp.haveBugsnagApiKey &&
-                prefs.getString("bugsnag_consent", "").isNullOrEmpty()
-
-        skipGuiOverrideRequested = false
-        skipGuiVolumeOverrideHeld = false
-        skipGuiDirectLaunchActive = false
-        skipGuiAutoLaunchPending =
-            savedInstanceState == null &&
-                prefs.getBoolean("pref_skip_gui", false) &&
-                !bugsnagConsentMissing
-
-        if (skipGuiAutoLaunchPending) {
-            window.decorView.alpha = 0f
-            Log.i(TAG, "Skip GUI: launcher decor hidden before layout presentation.")
-        }
-
         PermissionHelper.getWriteExternalStoragePermission(this@MainActivity)
         setContentView(R.layout.main)
+        prefs = PreferenceManager.getDefaultSharedPreferences(this)
         migrateObjectPagingMinSizeDefault()
-        migrateOpenMw050SettingsPreferences()
 
         val theme = prefs.getInt(getString(R.string.theme), 0)
         if(theme == 0) AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
@@ -127,10 +86,7 @@ class MainActivity : AppCompatActivity() {
         fragmentManager.beginTransaction()
             .replace(R.id.content_frame, FragmentSettings()).commit()
 
-        val launcherToolbar =
-            findViewById<androidx.appcompat.widget.Toolbar>(R.id.main_toolbar)
-        setSupportActionBar(launcherToolbar)
-        installUserConfigurationOverflow(launcherToolbar)
+        setSupportActionBar(findViewById(R.id.main_toolbar))
 
         val fab = findViewById<FloatingActionButton>(R.id.fab)
         fab.setOnClickListener { checkStartGame() }
@@ -138,58 +94,6 @@ class MainActivity : AppCompatActivity() {
         if (prefs.getString("bugsnag_consent", "")!! == "") {
             askBugsnagConsent()
         }
-
-        if (skipGuiAutoLaunchPending) {
-            Log.i(
-                TAG,
-                "Skip GUI armed: press/hold Volume Up during startup to show launcher."
-            )
-            skipGuiHandler.postDelayed(skipGuiAutoLaunchRunnable, 800L)
-        }
-    }
-
-    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        if (event.keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) {
-            if (skipGuiAutoLaunchPending &&
-                event.action == android.view.KeyEvent.ACTION_DOWN) {
-                skipGuiOverrideRequested = true
-                skipGuiAutoLaunchPending = false
-                skipGuiDirectLaunchActive = false
-                skipGuiVolumeOverrideHeld = true
-                skipGuiHandler.removeCallbacks(skipGuiAutoLaunchRunnable)
-                window.decorView.alpha = 1f
-
-                Log.i(TAG, "Skip GUI overridden by Volume Up; launcher remains visible.")
-                return true
-            }
-
-            if (skipGuiVolumeOverrideHeld) {
-                if (event.action == android.view.KeyEvent.ACTION_UP) {
-                    skipGuiVolumeOverrideHeld = false
-                }
-                return true
-            }
-        }
-
-        return super.dispatchKeyEvent(event)
-    }
-
-    override fun onDestroy() {
-        skipGuiHandler.removeCallbacks(skipGuiAutoLaunchRunnable)
-        skipGuiAutoLaunchPending = false
-        super.onDestroy()
-    }
-
-    private fun revealLauncherAfterSkipGui(reason: String) {
-        if (!skipGuiDirectLaunchActive && window.decorView.alpha >= 1f) {
-            return
-        }
-
-        skipGuiDirectLaunchActive = false
-        skipGuiAutoLaunchPending = false
-        skipGuiHandler.removeCallbacks(skipGuiAutoLaunchRunnable)
-        window.decorView.alpha = 1f
-        Log.i(TAG, "Skip GUI: launcher restored ($reason).")
     }
 
     override fun onResume() {
@@ -301,7 +205,6 @@ class MainActivity : AppCompatActivity() {
         // First, check that there are game files present
         val inst = GameInstaller(prefs.getString("game_files", "")!!)
         if (!inst.check()) {
-            revealLauncherAfterSkipGui("game files need configuration")
             AlertDialog.Builder(this)
                 .setTitle(R.string.no_data_files_title)
                 .setMessage(R.string.no_data_files_message)
@@ -326,7 +229,6 @@ class MainActivity : AppCompatActivity() {
             ModsDatabaseOpenHelper.getInstance(this))
         if (plugins.mods.count { it.enabled } == 0) {
             // No mods enabled, show a warning
-            revealLauncherAfterSkipGui("content selection needs confirmation")
             AlertDialog.Builder(this)
                 .setTitle(R.string.no_content_files_title)
                 .setMessage(R.string.no_content_files_message)
@@ -524,10 +426,6 @@ class MainActivity : AppCompatActivity() {
             Constants.RESOURCES,
             "shaders/compatibility/shadowcasting.vert"
         )
-        val shadowFragmentShader = File(
-            Constants.RESOURCES,
-            "shaders/compatibility/shadows_fragment.glsl"
-        )
         val androidGodraysShader = File(
             Constants.RESOURCES,
             "vfs/shaders/godrays_android.omwfx"
@@ -539,10 +437,6 @@ class MainActivity : AppCompatActivity() {
         val androidWetworldShader = File(
             Constants.RESOURCES,
             "vfs/shaders/wetworld_android.omwfx"
-        )
-        val androidRainlensShader = File(
-            Constants.RESOURCES,
-            "vfs/shaders/rainlens_android.omwfx"
         )
         val androidBloomShader = File(
             Constants.RESOURCES,
@@ -559,11 +453,9 @@ class MainActivity : AppCompatActivity() {
             !File(Constants.RESOURCES, "version").isFile ||
             !fullscreenShader.isFile ||
             !shadowShader.isFile ||
-            !shadowFragmentShader.isFile ||
             !androidGodraysShader.isFile ||
             !androidLensflareShader.isFile ||
             !androidWetworldShader.isFile ||
-            !androidRainlensShader.isFile ||
             !androidBloomShader.isFile ||
             !omwfxMarker.isFile) {
             return false
@@ -572,13 +464,9 @@ class MainActivity : AppCompatActivity() {
         return try {
             // Android/GL4ES compatibility backport from OpenMW MR !3948.
             // Uniform initializers in these GLSL 1.20 shaders fail on some GLES drivers.
-            val shadowFragmentText = shadowFragmentShader.readText()
             !fullscreenShader.readText().contains("uniform vec2 scaling =") &&
                 !shadowShader.readText().contains("uniform bool useDiffuseMapForShadowAlpha =") &&
-                !shadowShader.readText().contains("uniform bool alphaTestShadows =") &&
-                shadowFragmentText.contains("OPENMW_ANDROID_GLES2_MANUAL_SHADOW_COMPARE") &&
-                !shadowFragmentText.contains("uniform sampler2DShadow") &&
-                !shadowFragmentText.contains("shadow2DProj(")
+                !shadowShader.readText().contains("uniform bool alphaTestShadows =")
         } catch (e: IOException) {
             false
         }
@@ -606,7 +494,6 @@ class MainActivity : AppCompatActivity() {
             "godrays_android.omwfx",
             "lensflare_android.omwfx",
             "wetworld_android.omwfx",
-            "rainlens_android.omwfx",
             "bloomlinear_android.omwfx"
         )
         androidOmwfxShaders.forEach { shaderName ->
@@ -737,74 +624,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncAndroidShaderCompatibilityResources() {
-        // Core compatibility shaders must be refreshed from the APK itself on every
-        // development launch. VERSION_CODE can stay unchanged, so both the private
-        // resource tree and the writable user mirror may otherwise keep stale files.
-        // water.frag carries the Android WetWorld water-alpha marker from v14.5.5.
+        // Core compatibility shaders come from the generated OpenMW resource tree.
         val coreRelativePaths = listOf(
             "shaders/compatibility/fullscreen_tri.vert",
-            "shaders/compatibility/shadowcasting.vert",
-            "shaders/compatibility/shadows_fragment.glsl",
-            "shaders/compatibility/water.frag"
+            "shaders/compatibility/shadowcasting.vert"
         )
 
         coreRelativePaths.forEach { relativePath ->
-            val assetPath = "libopenmw/resources/$relativePath"
-            val privateTarget = File(Constants.RESOURCES, relativePath)
-            val userTarget = File(Constants.USER_FILE_STORAGE + "/resources/", relativePath)
+            val source = File(Constants.RESOURCES, relativePath)
+            val target = File(Constants.USER_FILE_STORAGE + "/resources/", relativePath)
 
-            privateTarget.parentFile?.mkdirs()
-            assets.open(assetPath).use { input ->
-                privateTarget.outputStream().use { output ->
-                    input.copyTo(output)
-                }
+            if (!source.isFile) {
+                throw IOException("Missing Android compatibility shader: ${source.absolutePath}")
             }
 
-            userTarget.parentFile?.mkdirs()
-            privateTarget.copyTo(userTarget, overwrite = true)
-
-            if (relativePath == "shaders/compatibility/shadows_fragment.glsl") {
-                val shadowFragmentText = try {
-                    userTarget.readText()
-                } catch (e: IOException) {
-                    ""
-                }
-
-                val hasManualShadowCompare =
-                    shadowFragmentText.contains("OPENMW_ANDROID_GLES2_MANUAL_SHADOW_COMPARE") &&
-                        !shadowFragmentText.contains("uniform sampler2DShadow") &&
-                        !shadowFragmentText.contains("shadow2DProj(")
-
-                if (!hasManualShadowCompare) {
-                    throw IOException(
-                        "Runtime shadows_fragment.glsl is not the GLES2 manual-shadow version: ${userTarget.absolutePath}"
-                    )
-                }
-
-                Log.i(
-                    TAG,
-                    "Synced GLES2 manual shadow receiver shader; marker=true; size=${userTarget.length()}"
-                )
-            }
-
-            if (relativePath == "shaders/compatibility/water.frag") {
-                val hasWetWorldWaterMask = try {
-                    userTarget.readText().contains("@wetWorldWaterMask")
-                } catch (e: IOException) {
-                    false
-                }
-
-                if (!hasWetWorldWaterMask) {
-                    throw IOException(
-                        "Runtime water.frag is missing the WetWorld water-mask marker: ${userTarget.absolutePath}"
-                    )
-                }
-
-                Log.i(
-                    TAG,
-                    "Synced runtime water.frag for WetWorld mask; marker=true; size=${userTarget.length()}"
-                )
-            }
+            target.parentFile?.mkdirs()
+            source.copyTo(target, overwrite = true)
         }
 
         // Android-owned OMWFX shaders live as standalone APK assets. Refresh
@@ -816,7 +651,6 @@ class MainActivity : AppCompatActivity() {
             "godrays_android.omwfx",
             "lensflare_android.omwfx",
             "wetworld_android.omwfx",
-            "rainlens_android.omwfx",
             "bloomlinear_android.omwfx"
         )
 
@@ -923,203 +757,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Applies the launcher Shadow settings directly to OpenMW's user settings.
-     *
-     * OpenMW 0.50 already provides the complete shadow-mapping implementation.
-     * On Android/GL4ES, Quality keeps one stable shadow map and controls its
-     * resolution only. Distance controls the maximum shadow range. A 0.75 fade start gives the outer 25 percent of
-     * the selected range to smoothly fade shadows out (and back in when approaching).
-     */
-    private fun applyShadowSettings() {
-        val quality = prefs.getString("gs_shadow_quality", "medium") ?: "medium"
-        // Android/GL4ES: keep a single shadow map for every quality tier.
-        // Multi-map cascades (2+ maps) produce moving dark/flickering regions on
-        // GLES2 devices, while one map is stable. Quality therefore controls
-        // resolution only on this Android port.
-        val (shadowMapCount, shadowMapResolution) = when (quality) {
-            "low" -> "1" to "1024"
-            "high" -> "1" to "4096"
-            else -> "1" to "2048"
-        }
-
-        val maximumShadowDistance = when (prefs.getString("gs_shadow_distance", "medium")) {
-            "low" -> "2048"
-            "high" -> "8192"
-            else -> "4096"
-        }
-
-        val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
-        updateSettingsSection(
-            settingsFile,
-            "Shadows",
-            linkedMapOf(
-                "enable shadows" to if (prefs.getBoolean("gs_enable_shadows", false)) "true" else "false",
-                "player shadows" to if (prefs.getBoolean("gs_player_shadows", true)) "true" else "false",
-                "actor shadows" to if (prefs.getBoolean("gs_actor_shadows", true)) "true" else "false",
-                "object shadows" to if (prefs.getBoolean("gs_object_shadows", true)) "true" else "false",
-                "terrain shadows" to if (prefs.getBoolean("gs_terrain_shadows", true)) "true" else "false",
-                "enable indoor shadows" to if (prefs.getBoolean("gs_indoor_shadows", true)) "true" else "false",
-                "number of shadow maps" to shadowMapCount,
-                "shadow map resolution" to shadowMapResolution,
-                "maximum shadow map distance" to maximumShadowDistance,
-                "shadow fade start" to "0.75"
-            )
-        )
-
-        Log.i(
-            TAG,
-            "Applied OpenMW 0.50 shadows: enabled=${prefs.getBoolean("gs_enable_shadows", false)}, " +
-                "quality=$quality (${shadowMapCount}x${shadowMapResolution}), " +
-                "distance=$maximumShadowDistance, fadeStart=0.75"
-        )
-    }
-
-    // v14.2 OpenMW 0.50 launcher settings
-    private fun readOpenMwSetting(
-        file: File,
-        sectionName: String,
-        key: String
-    ): String? {
-        if (!file.isFile) {
-            return null
-        }
-
-        val wantedSection = "[$sectionName]"
-        var inSection = false
-
-        return try {
-            for (line in file.readLines()) {
-                val trimmed = line.trim()
-
-                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                    inSection = trimmed.equals(wantedSection, ignoreCase = true)
-                    continue
-                }
-
-                if (!inSection || trimmed.isEmpty() ||
-                    trimmed.startsWith("#") || trimmed.startsWith(";")) {
-                    continue
-                }
-
-                val equals = trimmed.indexOf('=')
-                if (equals <= 0) {
-                    continue
-                }
-
-                val foundKey = trimmed.substring(0, equals).trim()
-                if (foundKey.equals(key, ignoreCase = true)) {
-                    return trimmed.substring(equals + 1)
-                        .substringBefore('#')
-                        .substringBefore(';')
-                        .trim()
-                }
-            }
-
-            null
-        } catch (e: IOException) {
-            Log.w(TAG, "Could not read OpenMW 0.50 setting [$sectionName] $key", e)
-            null
-        }
-    }
-
-    /**
-     * Import existing user choices once. If settings.cfg does not contain one
-     * of the new OpenMW 0.50 settings, use the official 0.50 default.
-     *
-     * This means an existing hand-edited settings.cfg is respected when the
-     * new launcher controls first appear.
-     */
-    private fun migrateOpenMw050SettingsPreferences() {
-        val migrationKey = "migration_openmw050_launcher_settings_v1"
-        if (prefs.getBoolean(migrationKey, false)) {
-            return
-        }
-
-        val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
-
-        fun readBoolean(section: String, key: String, defaultValue: Boolean): Boolean {
-            val raw = readOpenMwSetting(settingsFile, section, key) ?: return defaultValue
-            return when {
-                raw.equals("true", ignoreCase = true) -> true
-                raw.equals("false", ignoreCase = true) -> false
-                else -> defaultValue
-            }
-        }
-
-        val controllerMenus =
-            readBoolean("GUI", "controller menus", false)
-        val controllerTooltips =
-            readBoolean("GUI", "controller tooltips", false)
-        val cameraListener =
-            readBoolean("Sound", "camera listener", false)
-
-        val dopplerFactor =
-            readOpenMwSetting(settingsFile, "Sound", "doppler factor")
-                ?.toDoubleOrNull()
-        val dopplerEnabled = dopplerFactor?.let { it != 0.0 } ?: true
-
-        prefs.edit()
-            .putBoolean("pref_omw050_controller_menus", controllerMenus)
-            .putBoolean("pref_omw050_controller_tooltips", controllerTooltips)
-            .putBoolean("pref_omw050_doppler", dopplerEnabled)
-            .putBoolean("pref_omw050_camera_listener", cameraListener)
-            .putBoolean(migrationKey, true)
-            .apply()
-
-        Log.i(
-            TAG,
-            "Imported OpenMW 0.50 launcher settings: " +
-                "controllerMenus=$controllerMenus, " +
-                "controllerTooltips=$controllerTooltips, " +
-                "doppler=$dopplerEnabled, " +
-                "cameraListener=$cameraListener"
-        )
-    }
-
-    /**
-     * Write only the four launcher-owned OpenMW 0.50 settings to the user's
-     * settings.cfg. Unrelated settings and OMWFX/F2 edits remain untouched.
-     */
-    private fun applyOpenMw050LauncherSettings() {
-        val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
-
-        val controllerMenus =
-            prefs.getBoolean("pref_omw050_controller_menus", false)
-        val controllerTooltips =
-            prefs.getBoolean("pref_omw050_controller_tooltips", false)
-        val dopplerEnabled =
-            prefs.getBoolean("pref_omw050_doppler", true)
-        val cameraListener =
-            prefs.getBoolean("pref_omw050_camera_listener", false)
-
-        updateSettingsSection(
-            settingsFile,
-            "GUI",
-            linkedMapOf(
-                "controller menus" to if (controllerMenus) "true" else "false",
-                "controller tooltips" to if (controllerTooltips) "true" else "false"
-            )
-        )
-
-        updateSettingsSection(
-            settingsFile,
-            "Sound",
-            linkedMapOf(
-                "doppler factor" to if (dopplerEnabled) "0.25" else "0.0",
-                "camera listener" to if (cameraListener) "true" else "false"
-            )
-        )
-
-        Log.i(
-            TAG,
-            "Applied OpenMW 0.50 launcher settings: " +
-                "controllerMenus=$controllerMenus, " +
-                "controllerTooltips=$controllerTooltips, " +
-                "doppler=${if (dopplerEnabled) "0.25" else "0.0"}, " +
-                "cameraListener=$cameraListener"
-        )
-    }
-    /**
      * `Original`, `Modified` and `Zesterer` remain core-shader presets.
      * OMWFX is different: it uses the original core shaders plus OpenMW's
      * post-processing pipeline.
@@ -1145,7 +782,7 @@ class MainActivity : AppCompatActivity() {
                     )
                 )
 
-                Log.i(TAG, "Enabled OMWFX Android v14.6.2 / OpenMW 0.50 preset with WetWorld v2.4 + RainLens v1.2 + Godrays + Lensflare + balanced Android Bloom: $chain")
+                Log.i(TAG, "Enabled OMWFX Android v13.23.2 preset with balanced Android Bloom + WetWorld v2 + Godrays + Lensflare: $chain")
             }
         } else if (previouslyApplied == OMWFX_PRESET_VALUE) {
             val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
@@ -1222,11 +859,8 @@ class MainActivity : AppCompatActivity() {
             scaling = MyApp.app.defaultScaling
         }
 
-        val dialog = if (skipGuiDirectLaunchActive) {
-            null
-        } else {
-            ProgressDialog.show(this, "", "Preparing for launch...", true)
-        }
+        val dialog = ProgressDialog.show(
+            this, "", "Preparing for launch...", true)
 
         val activity = this
 
@@ -1272,13 +906,6 @@ class MainActivity : AppCompatActivity() {
                 // Apply the launcher-level shader preset only after the writable
                 // VFS mirror is guaranteed to contain the packaged OMWFX files.
                 applyShaderPresetSettings()
-
-                // Restore the launcher-owned OpenMW 0.50 controller/audio settings.
-                applyOpenMw050LauncherSettings()
-
-                // Apply native OpenMW 0.50 shadow mapping settings. This touches only
-                // the [Shadows] section and does not modify OMWFX/post-processing.
-                applyShadowSettings()
 
                 //val displayInCutoutArea = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_display_cutout_area", false)
                 obtainFixedScreenResolution()
@@ -1441,14 +1068,13 @@ class MainActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     obtainFixedScreenResolution()
-                    dialog?.dismiss()
+                    dialog.dismiss()
                     runGame()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to prepare OpenMW launch.", e)
                 runOnUiThread {
-                    revealLauncherAfterSkipGui("launch preparation failed")
-                    dialog?.dismiss()
+                    dialog.dismiss()
                     AlertDialog.Builder(activity)
                         .setTitle("OpenMW launch failed")
                         .setMessage(e.message ?: "Unknown error while preparing OpenMW.")
@@ -1460,478 +1086,14 @@ class MainActivity : AppCompatActivity() {
         th.start()
     }
 
-    // v14.1 launcher popup/about polish
-    private data class AboutLicenseSection(
-        val title: String,
-        val body: String
-    )
-
-    // Cache the small section index once. Individual licence bodies are still
-    // inflated lazily only when the user expands a section in About.
-    private var cachedThirdPartyLicenseSections: List<AboutLicenseSection>? = null
-
-    private fun launcherDp(value: Int): Int =
-        (value * resources.displayMetrics.density + 0.5f).toInt()
-
-    private fun launcherThemeColor(attribute: Int, fallback: Int): Int {
-        val value = android.util.TypedValue()
-        if (!theme.resolveAttribute(attribute, value, true)) {
-            return fallback
-        }
-
-        if (value.resourceId != 0) {
-            return try {
-                androidx.appcompat.content.res.AppCompatResources
-                    .getColorStateList(this, value.resourceId)
-                    ?.defaultColor ?: fallback
-            } catch (_: Exception) {
-                fallback
-            }
-        }
-
-        return value.data
-    }
-
-    /**
-     * The stock AppCompat overflow popup can overlap its three-dot anchor.
-     * Install a launcher-owned overflow button instead so the popup is always
-     * positioned BELOW the icon and can have a proper section heading.
-     */
-    private fun installUserConfigurationOverflow(
-        toolbar: androidx.appcompat.widget.Toolbar
-    ) {
-        val overflow = android.widget.TextView(this).apply {
-            text = "\u22ee"
-            textSize = 29f
-            gravity = android.view.Gravity.CENTER
-            contentDescription = "User Configuration"
-            isClickable = true
-            isFocusable = true
-            setTextColor(
-                launcherThemeColor(
-                    android.R.attr.textColorPrimary,
-                    android.graphics.Color.WHITE
-                )
-            )
-
-            val selectable = android.util.TypedValue()
-            if (theme.resolveAttribute(
-                    android.R.attr.selectableItemBackgroundBorderless,
-                    selectable,
-                    true
-                ) && selectable.resourceId != 0
-            ) {
-                setBackgroundResource(selectable.resourceId)
-            }
-
-            layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
-                launcherDp(48),
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.Gravity.END
-            )
-
-            setOnClickListener { anchor ->
-                showUserConfigurationPopup(anchor)
-            }
-        }
-
-        toolbar.addView(overflow)
-    }
-
-    private fun launcherPopupRow(
-        text: String,
-        primaryColor: Int
-    ): android.widget.TextView =
-        android.widget.TextView(this).apply {
-            this.text = text
-            textSize = 16f
-            gravity = android.view.Gravity.CENTER_VERTICAL
-            setTextColor(primaryColor)
-            setPadding(launcherDp(18), 0, launcherDp(18), 0)
-            minHeight = launcherDp(48)
-            isClickable = true
-            isFocusable = true
-
-            val selectable = android.util.TypedValue()
-            if (theme.resolveAttribute(
-                    android.R.attr.selectableItemBackground,
-                    selectable,
-                    true
-                ) && selectable.resourceId != 0
-            ) {
-                setBackgroundResource(selectable.resourceId)
-            }
-        }
-
-    private fun showLauncherPopup(
-        anchor: android.view.View,
-        title: String,
-        entries: List<Pair<String, () -> Unit>>
-    ) {
-        val backgroundColor = launcherThemeColor(
-            android.R.attr.colorBackground,
-            android.graphics.Color.WHITE
-        )
-        val primaryColor = launcherThemeColor(
-            android.R.attr.textColorPrimary,
-            android.graphics.Color.BLACK
-        )
-        val secondaryColor = launcherThemeColor(
-            android.R.attr.textColorSecondary,
-            primaryColor
-        )
-
-        val container = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(0, launcherDp(6), 0, launcherDp(6))
-
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(backgroundColor)
-                cornerRadius = launcherDp(5).toFloat()
-            }
-        }
-
-        val heading = android.widget.TextView(this).apply {
-            text = title
-            textSize = 13f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(secondaryColor)
-            gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(launcherDp(18), launcherDp(8), launcherDp(18), launcherDp(6))
-        }
-        container.addView(
-            heading,
-            android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        val divider = android.view.View(this).apply {
-            setBackgroundColor(secondaryColor)
-            alpha = 0.18f
-        }
-        container.addView(
-            divider,
-            android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                launcherDp(1)
-            )
-        )
-
-        val popupWidth = launcherDp(286)
-        lateinit var popup: android.widget.PopupWindow
-
-        entries.forEach { entry ->
-            val row = launcherPopupRow(entry.first, primaryColor)
-            row.setOnClickListener {
-                popup.dismiss()
-                entry.second.invoke()
-            }
-            container.addView(
-                row,
-                android.widget.LinearLayout.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            )
-        }
-
-        popup = android.widget.PopupWindow(
-            container,
-            popupWidth,
-            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-            true
-        ).apply {
-            isOutsideTouchable = true
-            setBackgroundDrawable(
-                android.graphics.drawable.ColorDrawable(
-                    android.graphics.Color.TRANSPARENT
-                )
-            )
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                elevation = launcherDp(8).toFloat()
-            }
-        }
-
-        // Right-align with the three-dot anchor while keeping the popup entirely
-        // below it. showAsDropDown(), unlike the standard overflow implementation,
-        // does not intentionally overlap the anchor.
-        val xOffset = anchor.width - popupWidth
-        popup.showAsDropDown(anchor, xOffset, launcherDp(2))
-    }
-
-    private fun showUserConfigurationPopup(anchor: android.view.View) {
-        val entries = mutableListOf<Pair<String, () -> Unit>>()
-
-        entries += "Reset user configuration" to {
-            removeUserConfig()
-            android.widget.Toast.makeText(
-                this,
-                getString(R.string.user_config_was_reset),
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        }
-
-        entries += "Reset user resources" to {
-            removeStaticFiles()
-            removeResourceFiles()
-            android.widget.Toast.makeText(
-                this,
-                getString(R.string.user_resources_was_reset),
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        }
-
-        entries += "Theme \u203a" to {
-            showThemePopup(anchor)
-        }
-
-        entries += "About" to {
-            showAboutDialog()
-        }
-
-        if (MyApp.haveBugsnagApiKey) {
-            entries += "Crash reporting" to {
-                askBugsnagConsent()
-            }
-        }
-
-        showLauncherPopup(anchor, "User Configuration", entries)
-    }
-
-    private fun setLauncherTheme(
-        preferenceValue: Int,
-        nightMode: Int,
-        displayName: String
-    ) {
-        prefs.edit()
-            .putInt(getString(R.string.theme), preferenceValue)
-            .apply()
-
-        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(nightMode)
-
-        android.widget.Toast.makeText(
-            this,
-            "Theme set to $displayName",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    private fun showThemePopup(anchor: android.view.View) {
-        showLauncherPopup(
-            anchor,
-            "Theme",
-            listOf(
-                "System" to {
-                    setLauncherTheme(
-                        0,
-                        androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
-                        "system"
-                    )
-                },
-                "Light" to {
-                    setLauncherTheme(
-                        1,
-                        androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO,
-                        "light"
-                    )
-                },
-                "Dark" to {
-                    setLauncherTheme(
-                        2,
-                        androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES,
-                        "dark"
-                    )
-                }
-            )
-        )
-    }
-
-    /**
-     * 3rdparty-licenses.txt contains concatenated licence texts. Most top-level
-     * package headings use the common:
-     *
-     *     Package name
-     *     ------------
-     *
-     * format. Convert those package blocks into collapsed accordion sections.
-     * If a future generated licence file does not use that format, keep all text
-     * accessible in one fallback section rather than dropping anything.
-     */
-    private fun parseThirdPartyLicenses(text: String): List<AboutLicenseSection> {
-        val normalized = text.replace("\r\n", "\n").replace('\r', '\n')
-        val lines = normalized.split('\n')
-        val sections = mutableListOf<AboutLicenseSection>()
-        val body = mutableListOf<String>()
-        var title: String? = null
-
-        fun flush() {
-            val cleaned = body.joinToString("\n").trim()
-            if (cleaned.isNotEmpty()) {
-                sections += AboutLicenseSection(
-                    title ?: "Third-party notices",
-                    cleaned
-                )
-            }
-            body.clear()
-        }
-
-        var index = 0
-        while (index < lines.size) {
-            val line = lines[index]
-            val trimmed = line.trim()
-
-            // "===== Name =====" style headings.
-            val decorated = Regex("""^[=-]{3,}\s*(.+?)\s*[=-]{3,}$""")
-                .matchEntire(trimmed)
-            if (decorated != null) {
-                flush()
-                val parsedTitle = decorated.groupValues[1].trim()
-                // A long dashed separator in the generated licence bundle is
-                // parsed as a single "-" by the generic decorated-heading regex.
-                // Keep it as its own licence section with a meaningful heading.
-                title = if (parsedTitle == "-") "GNU General Public License" else parsedTitle
-                index += 1
-                continue
-            }
-
-            // "Name" followed by "-----" or "=====".
-            if (trimmed.isNotEmpty() && index + 1 < lines.size) {
-                val underline = lines[index + 1].trim()
-                if (underline.matches(Regex("""^[=-]{3,}$"""))) {
-                    flush()
-                    title = trimmed
-                    index += 2
-                    continue
-                }
-            }
-
-            body += line
-            index += 1
-        }
-
-        flush()
-
-        if (sections.isEmpty() && normalized.isNotBlank()) {
-            return listOf(
-                AboutLicenseSection(
-                    "Third-party notices",
-                    normalized.trim()
-                )
-            )
-        }
-
-        return sections
-    }
-
-    private fun getThirdPartyLicenseSections(): List<AboutLicenseSection> {
-        cachedThirdPartyLicenseSections?.let { return it }
-
-        val licenseText = assets.open("libopenmw/3rdparty-licenses.txt")
-            .bufferedReader()
-            .use { it.readText() }
-        return parseThirdPartyLicenses(licenseText).also {
-            cachedThirdPartyLicenseSections = it
-        }
-    }
-
-    private fun showAboutDialog() {
-        val licenseSections = getThirdPartyLicenseSections()
-
-        val primaryColor = launcherThemeColor(
-            android.R.attr.textColorPrimary,
-            android.graphics.Color.BLACK
-        )
-        val secondaryColor = launcherThemeColor(
-            android.R.attr.textColorSecondary,
-            primaryColor
-        )
-
-        val content = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(
-                launcherDp(24),
-                launcherDp(4),
-                launcherDp(24),
-                launcherDp(12)
-            )
-        }
-
-        val portInfo = android.widget.TextView(this).apply {
-            text =
-                "This port by Andreas \"Andiweli\" Stürmer\n" +
-                "Based on a port of CaveBros\n" +
-                "OpenMW by the OpenMW Team since 2008"
-            textSize = 16f
-            gravity = android.view.Gravity.START
-            textAlignment = android.view.View.TEXT_ALIGNMENT_VIEW_START
-            setTextColor(primaryColor)
-            setPadding(0, launcherDp(8), 0, launcherDp(14))
-        }
-        content.addView(portInfo)
-
-        licenseSections.forEach { section ->
-            var bodyView: android.widget.TextView? = null
-            var expanded = false
-
-            val header = launcherPopupRow(
-                "\u25b8 ${section.title}",
-                primaryColor
-            ).apply {
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                setPadding(launcherDp(4), 0, launcherDp(4), 0)
-            }
-
-            header.setOnClickListener {
-                val body = bodyView ?: android.widget.TextView(this).apply {
-                    text = section.body
-                    textSize = 13f
-                    setTextColor(secondaryColor)
-                    setPadding(
-                        launcherDp(12),
-                        launcherDp(2),
-                        launcherDp(8),
-                        launcherDp(14)
-                    )
-                    visibility = android.view.View.GONE
-                    setTextIsSelectable(true)
-                }.also { created ->
-                    bodyView = created
-                    content.addView(created, content.indexOfChild(header) + 1)
-                }
-
-                expanded = !expanded
-                body.visibility =
-                    if (expanded) android.view.View.VISIBLE else android.view.View.GONE
-                header.text =
-                    (if (expanded) "\u25be " else "\u25b8 ") + section.title
-            }
-
-            content.addView(header)
-        }
-
-        val scroll = android.widget.ScrollView(this).apply {
-            isFillViewport = true
-            addView(
-                content,
-                android.widget.FrameLayout.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            )
-        }
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle(getString(R.string.about_title))
-            .setView(scroll)
-            .setPositiveButton(android.R.string.ok) { _, _ -> }
-            .show()
-    }
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        // The launcher owns its overflow popup so it can stay below the three-dot anchor.
         menu.clear()
-        return true
+        val inflater = menuInflater
+        inflater.inflate(R.menu.menu_settings, menu)
+
+        if (!MyApp.haveBugsnagApiKey)
+            menu.findItem(R.id.action_bugsnag_consent).setVisible(false)
+        return super.onPrepareOptionsMenu(menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -1986,7 +1148,15 @@ class MainActivity : AppCompatActivity() {
             }
 
             R.id.action_about -> {
-                showAboutDialog()
+                val text = assets.open("libopenmw/3rdparty-licenses.txt")
+                    .bufferedReader()
+                    .use { it.readText() }
+
+                AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.about_title))
+                    .setMessage(text)
+                    .show()
+
                 true
             }
 
@@ -2007,10 +1177,10 @@ class MainActivity : AppCompatActivity() {
         var resolutionX = 0
         var resolutionY = 0
 
-        // v14.0 / OpenMW 0.50 Android OMWFX launcher preset state.
+        // v13.23.2 Android OMWFX launcher preset state.
         private const val OMWFX_PRESET_VALUE = "omwfx"
         private const val OMWFX_APPLIED_PRESET_KEY =
-            "launcher_shader_preset_applied_v20_rainlens_android_v12"
+            "launcher_shader_preset_applied_v18_balanced_android_bloom"
 
         // Android/GL4ES chain:
         // - Both OMWFX underwater techniques remain disabled because they do
@@ -2021,16 +1191,12 @@ class MainActivity : AppCompatActivity() {
         //   finite differences entirely inside the fragment pass (no dFdx/dFdy)
         //   and adds procedural puddle patches, because the v13.22 derivative
         //   version is rejected by the Adreno/GL4ES generated vertex shader.
-        // - rainlens_android is the lightweight GLSL-1.20-safe camera-lens
-        //   raindrop pass. It reacts only to OpenMW weather IDs Rain=4 and
-        //   Thunderstorm=5, follows weather transitions and is disabled in
-        //   interiors and underwater. No extra texture or render target is used.
         // - godrays_android is the lightweight GLSL-1.20-safe radial sun-shaft
         //   pass bundled by this launcher. v13.23 softens its sampling bands,
         //   reduces strength toward v13.21 and occludes the direct sun glow.
         // - lensflare_android is a mobile flare based on the community OMWFX
         //   sun-glare approach: soft halo plus two lens ghosts.
-        // - bloomlinear_android is OpenMW's linear bloom shader with Android-safe
+        // - bloomlinear_android is OpenMW 0.49's linear bloom shader with Android-safe
         //   visual defaults: sky factor 0.25, strength 0.20 and threshold 0.40.
         //   A unique technique name prevents old bloomlinear values in shaders.yaml
         //   from overriding these v13.23.2 defaults.
@@ -2041,12 +1207,9 @@ class MainActivity : AppCompatActivity() {
         // before Bloom/HDR so Bloom can spread their glow naturally.
         //
         // Bumping OMWFX_APPLIED_PRESET_KEY forces one migration of existing
-        // OMWFX selections to the v14.6.2 RainLens v1.2 chain. RainLens intentionally
-        // runs directly after WetWorld so the later optical/bloom stages retain
-        // the established Android tuning.
+        // OMWFX selections to the v13.23.2 chain.
         private val OMWFX_RECOMMENDED_CHAIN = listOf(
             "wetworld_android",
-            "rainlens_android",
             "godrays_android",
             "lensflare_android",
             "bloomlinear_android",

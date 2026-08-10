@@ -22,13 +22,11 @@
         <Preference
             android:key="pref_game_settings"
             android:title="Game Settings"
-            android:summary="Set your specific preferences for Mechanics, Visuals, etc"
             />
 
         <Preference
             android:title="@string/mods"
             android:key="pref_mods"
-            android:summary="Add mods to OpenMW"
             />
     </PreferenceCategory>
 
@@ -37,12 +35,15 @@
         <Preference
             android:title="@string/action_show_screen_controls"
             android:key="pref_controls"
-            android:summary="Configure your prefered on-screen touch-controls"
             />
 
-        <Preference
+        <EditTextPreference
             android:key="pref_uiScaling"
-            android:title="@string/pref_uiScaling" />
+            android:title="@string/pref_uiScaling"
+            android:dialogTitle="@string/pref_uiScaling"
+            android:inputType="numberDecimal"
+            android:hint="1.5"
+            />
 
         <ListPreference
             android:key="pref_mouse_mode"
@@ -53,18 +54,6 @@
             android:defaultValue="@string/pref_mouse_mode_default"
             android:summary="%s"
             />
-
-        <CheckBoxPreference
-            android:key="pref_omw050_controller_menus"
-            android:title="Controller Menus"
-            android:summary="Use OpenMW 0.50 gamepad-optimized menu navigation"
-            android:defaultValue="false" />
-
-        <CheckBoxPreference
-            android:key="pref_omw050_controller_tooltips"
-            android:title="Controller Tooltips"
-            android:summary="Always show item tooltips without pressing R3"
-            android:defaultValue="false" />
 
         <CheckBoxPreference
             android:key="pref_hide_controls"
@@ -89,13 +78,13 @@
 
     <PreferenceCategory android:title="@string/category_performance">
         <ListPreference
-            android:key="gs_framerate_limit"
-            android:title="@string/pref_framerate_limit"
-            android:dialogTitle="@string/pref_framerate_limit"
-            android:entries="@array/pref_framerate_limit_entries"
-            android:entryValues="@array/pref_framerate_limit_values"
-            android:defaultValue="@string/pref_framerate_limit_default"
-            android:summary="%s FPS"
+            android:key="pref_physicsFPS2"
+            android:title="@string/pref_physicsFPS2"
+            android:dialogTitle="@string/pref_physicsFPS2"
+            android:entries="@array/pref_physicsFPS2_entries"
+            android:entryValues="@array/pref_physicsFPS2_entries"
+            android:defaultValue="@string/pref_physicsFPS2_default"
+            android:summary="%s"
             />
 
         <CheckBoxPreference
@@ -105,17 +94,24 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/pref_graphics">
-        <Preference
+        <EditTextPreference
             android:key="pref_customResolution"
-            android:title="@string/pref_customResolution" />
+            android:title="@string/pref_customResolution"
+            android:dialogTitle="@string/pref_customResolution"
+            android:hint="640x480"
+            />
 
         <CheckBoxPreference
             android:key="pref_display_cutout_area"
             android:title="@string/pref_display_cutout_area" />
 
-        <Preference
+        <EditTextPreference
             android:key="pref_gamma"
-            android:title="@string/pref_gamma" />
+            android:title="@string/pref_gamma"
+            android:dialogTitle="@string/pref_gamma"
+            android:inputType="numberDecimal"
+            android:hint="1.0"
+            />
 
         <ListPreference
             android:key="pref_textureShrinking_v2"
@@ -138,25 +134,7 @@
         />
     </PreferenceCategory>
 
-<PreferenceCategory android:title="Audio">
-        <CheckBoxPreference
-            android:key="pref_omw050_doppler"
-            android:title="Doppler Effect"
-            android:summary="Enable OpenMW 0.50 positional-audio Doppler effect (factor 0.25)"
-            android:defaultValue="true" />
-
-        <CheckBoxPreference
-            android:key="pref_omw050_camera_listener"
-            android:title="Camera as Audio Listener"
-            android:summary="Use the camera position instead of the player as the 3D audio listener"
-            android:defaultValue="false" />
-    </PreferenceCategory>
     <PreferenceCategory android:title="@string/pref_advanced">
-        <CheckBoxPreference
-            android:key="pref_skip_gui"
-            android:title="Skip Launcher GUI"
-            android:summary="Press 'Volume Up' during launching the App to show Launcher GUI again"
-            android:defaultValue="false" />
         <EditTextPreference
             android:key="commandLine"
             android:title="@string/pref_commandLine"
@@ -176,6 +154,7 @@
             android:defaultValue="@string/pref_graphicsLibrary_default"
             android:summary="%s"
         />
+        
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -6,10 +6,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
 
-        <uses-feature android:name="android.hardware.gamepad" android:required="false" />
-
-<application
-        android:appCategory="game"
+    <application
         android:name="utils.MyApp"
         android:allowBackup="true"
         android:hardwareAccelerated="true"
@@ -73,14 +70,6 @@
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:exported="true"
             android:label="@string/visuals_activity_settings"
-            android:screenOrientation="fullUser"
-            android:theme="@style/MyTheme" />
-
-        <activity
-            android:name="ui.activity.Shadows_SettingsActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
-            android:label="@string/shadows_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
 

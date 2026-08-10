@@ -1,6 +1,6 @@
 # OpenMW Android v13.13
 #
-# Bridge the CaveBros ndk-build SDL installation to OpenMW 0.50 Final's
+# Bridge the CaveBros ndk-build SDL installation to OpenMW 0.49 Final's
 # SDL2::SDL2 CMake target.
 #
 # CaveBros historically installs SDL headers by copying <SOURCE_DIR>/include

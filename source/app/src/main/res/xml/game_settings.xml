@@ -3,26 +3,37 @@
 
     <Preference
         android:key="game_settings_game_mechanics"
-        android:title="Gameplay" />
+        android:title="Game Mechanics"
+        />
 
     <Preference
         android:key="game_settings_visuals"
-        android:title="Visuals" />
-
-    <Preference
-        android:key="game_settings_shadows"
-        android:title="Shadows" />
+        android:title="Visuals"
+        />
 
     <Preference
         android:key="game_settings_animations"
-        android:title="Animations" />
+        android:title="Animations"
+        />
 
     <Preference
         android:key="game_settings_interface"
-        android:title="Interface" />
+        android:title="Interface"
+        />
+
+    <Preference
+        android:key="game_settings_bug_fixes"
+        android:title="Bug Fixes"
+        />
+
+    <Preference
+        android:key="game_settings_miscellaneous"
+        android:title="Miscellaneous"
+        />
 
     <Preference
         android:key="game_settings_engine"
-        android:title="Engine" />
+        android:title="Engine Settings"
+        />
 
 </PreferenceScreen>

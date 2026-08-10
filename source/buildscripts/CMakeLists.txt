@@ -10,7 +10,7 @@ set(LIBPNG_HASH SHA256=505e70834d35383537b6491e7ae8641f1a4bed1876dbfe361201fc808
 
 # https://www.freetype.org/index.html#news
 set(FREETYPE2_VERSION 2.13.2)
-set(FREETYPE2_HASH SHA256=1ac27e16c134a7f2ccea177faba19801131116fd682efc1f5737037c5db224b5)
+set(FREETYPE2_HASH SHA256=5eab795ebb23ac77001cfb68b7d4d50b5d6c7469247b0b01b2c953269f658dac)
 
 # https://github.com/kcat/openal-soft/releases
 set(OPENAL_VERSION 1.23.1)
@@ -52,8 +52,8 @@ set(LZ4_HASH SHA256=030644df4611007ff7dc962d981f390361e6c97a34e5cbc393ddfbe019ff
 set(LUAJIT_VERSION 505e2c03de35e2718eef0d2d3660712e06dadf1f)
 set(LUAJIT_HASH SHA256=409f7fe570d3c16558e594421c47bdd130238323c9d6fd6c83dedd2aaeb082a8)
 
-# OpenMW 0.50.0 Final — immutable commit behind tag openmw-0.50.0
-set(OPENMW_VERSION 47d78e004bc182def2904986f8bb54aea1f4b3ae)
+# OpenMW 0.49.0 Final â€” immutable commit behind tag openmw-0.49.0
+set(OPENMW_VERSION 675146bd8bce6245d78889f543b5c02a1e3936fe)
 # ExternalProject currently does not enforce OPENMW_HASH; keep the commit immutable instead.
 set(OPENMW_HASH "")
 
@@ -197,14 +197,8 @@ ExternalProject_Add(libpng
 )
 
 ExternalProject_Add(freetype2
-        # FreeType's Savannah endpoint occasionally returns transient 5xx errors.
-        # ExternalProject tries URL entries in order, so use SourceForge first and
-        # retain Savannah as an independent fallback. The verified upstream hash
-        # also lets CMake reuse a valid archive from DOWNLOAD_DIR safely.
-        URL
-        https://sourceforge.net/projects/freetype/files/freetype2/${FREETYPE2_VERSION}/freetype-${FREETYPE2_VERSION}.tar.gz/download
-        https://download.savannah.gnu.org/releases/freetype/freetype-${FREETYPE2_VERSION}.tar.gz
-        URL_HASH ${FREETYPE2_HASH}
+        URL https://download.savannah.gnu.org/releases/freetype/freetype-${FREETYPE2_VERSION}.tar.gz
+        #URL_HASH ${FREETYPE2_HASH}
         DOWNLOAD_DIR ${download_dir}
 
         CONFIGURE_COMMAND ${wrapper_command} <SOURCE_DIR>/configure
@@ -540,7 +534,6 @@ set(OSG_PATCH
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/osg/force-add-plugins.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/osg/dae_collada.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/osg/psa.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/osg/android-shadow-texture-compat.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/osg/0005-CullSettings-make-inheritanceMask-atomic-to-silence-.patch
 )
 
@@ -602,17 +595,18 @@ set(OPENMW_COMMON
 )
 
 set(OPENMW_PATCH
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw050-final/0001-gl4es-shaders.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw050-final/0002-android-lifecycle.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw050-final/0003-android-ui.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw050-final/0004-static-osg-link.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw050-final/0005-gl4es-save-psa.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw050-final/0006-ndk-r26-stringstream-compat.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw050-final/0007-android-shadow-depth-clamp-fallback.patch &&
-        python3 ${CMAKE_SOURCE_DIR}/patches/openmw050-final/apply-android-shadow-gles2-manual-compare.py <SOURCE_DIR> &&
-        python3 ${CMAKE_SOURCE_DIR}/patches/openmw050-final/apply-ndk-r26-format.py <SOURCE_DIR> &&
-        python3 ${CMAKE_SOURCE_DIR}/patches/openmw050-final/apply-postprocessing-final.py <SOURCE_DIR>
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0001-gl4es-shaders.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0002-android-lifecycle.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0003-android-ui.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0004-static-osg-link.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0005-gl4es-save-psa.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0006-ndk-r26-stringstream-compat.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0007-android-postprocessing-init.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0008-android-deferred-postprocessing-enable.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0009-android-postprocessing-gl-warmup.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw049-final/0010-android-postprocessing-stabilize-after-live-draws.patch
 )
+
 ExternalProject_Add(openmw
         DEPENDS boost openal osg mygui ffmpeg sdl2 bullet lz4 luajit libicu
 

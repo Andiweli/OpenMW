@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
 /*
- * Phase 2 v14 — OpenMW 0.50.0 Final
+ * Phase 2 v13 — OpenMW 0.49.0 Final
  *
  * Gradle remains build-configuration only: it does NOT rewrite SDL/Java/XML
  * source files. v12 adds one generated-assets task for the optional OMWFX
@@ -13,7 +13,7 @@ apply plugin: 'kotlin-android'
  * into the APK under libopenmw/resources/vfs/shaders.
  */
 
-def openMwVersionCode = 50
+def openMwVersionCode = 49
 def versionFile = new File(
         project.rootDir,
         'app/src/main/assets/libopenmw/resources/version'
@@ -39,7 +39,6 @@ def requiredOpenMwPayload = [
         file('src/main/assets/libopenmw/resources/version'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/fullscreen_tri.vert'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/shadowcasting.vert'),
-        file('src/main/assets/libopenmw/resources/shaders/compatibility/shadows_fragment.glsl'),
         file('src/main/assets/libopenmw/openmw/defaults.bin'),
         file('src/main/assets/libopenmw/openmw/openmw.base.cfg'),
         file('src/main/assets/libopenmw/openmw/openmw-engine-version.txt'),
@@ -67,45 +66,33 @@ tasks.register('verifyOpenMwPayload') {
 
             throw new GradleException(
                     'OpenMW native runtime payload is missing.\n' +
-                    'Build the pinned native engine first with tools\\build-openmw-050-final.ps1.\n\n' +
+                    'Build the pinned native engine first with tools\\build-openmw-049-final.ps1.\n\n' +
                     'Missing files:\n - ' + relativeMissing
             )
         }
 
         def engineMarkerFile = file('src/main/assets/libopenmw/openmw/openmw-engine-version.txt')
-        def engineMarker = engineMarkerFile.getText('UTF-8').replace('\r\n', '\n').trim()
-        def requiredFinalCommit = '47d78e004bc182def2904986f8bb54aea1f4b3ae'
-        def expectedEngineMarker = 'OpenMW 0.50.0 Final\ncommit=' + requiredFinalCommit
+        def engineMarker = engineMarkerFile.getText('UTF-8')
+        def requiredFinalCommit = '675146bd8bce6245d78889f543b5c02a1e3936fe'
 
-        if (engineMarker != expectedEngineMarker) {
-            def printableMarker = engineMarker.replace('\n', ' | ')
+        if (!engineMarker.contains('OpenMW 0.49.0 Final') ||
+                !engineMarker.contains(requiredFinalCommit)) {
             throw new GradleException(
-                    'The native payload is not the pinned OpenMW 0.50.0 Final engine.\n' +
-                    'Run tools\\finalize-openmw-050-payload.ps1 before assembling the APK.\n' +
-                    'Expected marker: ' + expectedEngineMarker.replace('\n', ' | ') + '\n' +
-                    'Actual marker:   ' + printableMarker
+                    'The native payload is not the pinned OpenMW 0.49.0 Final engine.\n' +
+                    'Run tools\\build-openmw-049-final.ps1 before assembling the APK.\n' +
+                    'Expected commit: ' + requiredFinalCommit
             )
         }
 
         def fullscreenShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/fullscreen_tri.vert').getText('UTF-8')
         def shadowShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/shadowcasting.vert').getText('UTF-8')
-        def shadowFragmentShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/shadows_fragment.glsl').getText('UTF-8')
 
         if (fullscreenShader.contains('uniform vec2 scaling =') ||
                 shadowShader.contains('uniform bool useDiffuseMapForShadowAlpha =') ||
                 shadowShader.contains('uniform bool alphaTestShadows =')) {
             throw new GradleException(
-                    'OpenMW 0.50 Final was built without the Android/GL4ES shader patch.\n' +
-                    'Re-run tools\\prepare-openmw-050-final.ps1 and rebuild the native engine.'
-            )
-        }
-
-        if (!shadowFragmentShader.contains('OPENMW_ANDROID_GLES2_MANUAL_SHADOW_COMPARE') ||
-                shadowFragmentShader.contains('uniform sampler2DShadow') ||
-                shadowFragmentShader.contains('shadow2DProj(')) {
-            throw new GradleException(
-                    'OpenMW 0.50 Final contains a stale GLES2 shadow receiver shader.\n' +
-                    'Re-run tools\\build-openmw-050-final.ps1 before assembling the APK.'
+                    'OpenMW 0.49 Final was built without the Android/GL4ES shader patch.\n' +
+                    'Re-run tools\\prepare-openmw-049-final.ps1 and rebuild the native engine.'
             )
         }
     }
