@@ -2,7 +2,7 @@
 
 <img width="1541" height="333" alt="image" src="https://github.com/user-attachments/assets/15a5cc0d-9210-4ce6-b8a2-09304a1b72c9" />
 
-**Morrowind on Android and ChromeOS with OpenMW 0.50, improved controls and enhanced OMWFX shaders.**
+**OpenMW (Morrowind) for Android and ChromeOS with improved controls and enhanced OMWFX shaders**
 
 ![OS](https://img.shields.io/badge/up%20to-Android%2016-green)
 ![Architecture](https://img.shields.io/badge/architecture-32/64bit-orange.svg)
