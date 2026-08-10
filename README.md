@@ -17,7 +17,7 @@
 
 This project is an **OpenMW Android and ChromeOS port for The Elder Scrolls III: Morrowind**. It is based on the [CaveBros openmw-android project](https://gitlab.com/cavebros/openmw-android/-/releases) and extends it with selected updates from **OpenMW 0.50**, additional Android/ChromeOS improvements and enhanced post-processing shaders.
 
-The goal is a clean, controller-friendly Morrowind experience on **Android handhelds, tablets, TV devices and ChromeOS** while staying close to the upstream OpenMW engine.
+The goal is a clean, controller-friendly Morrowind experience on **Android handhelds, tablets and ChromeOS** while staying close to the upstream OpenMW engine.
 
 
 | | | |
