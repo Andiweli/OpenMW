@@ -16,7 +16,7 @@
 
 ## ✨ About
 
-This project is an **OpenMW Android and ChromeOS port for The Elder Scrolls III: Morrowind**. It is based on the [CaveBros openmw-android project](https://gitlab.com/cavebros/openmw-android/-/releases) and extends it with **OpenMW 0.50**, additional Android/ChromeOS improvements and enhanced post-processing shaders.  
+This project is an **OpenMW Android and ChromeOS port for The Elder Scrolls III: Morrowind**. It is based on the [CaveBros openmw-android project](https://gitlab.com/cavebros/openmw-android/-/releases) and extends it with **OpenMW 0.51**, additional Android/ChromeOS improvements and enhanced post-processing shaders.  
 This is not meant to be the umpteenth OpenMW port; rather, this fork is about continuing the clear and simple launcher user interface of the CaveBros port, combined with a more up-to-date OpenMW base and more modern shaders.
 
 The goal is a clean, controller-friendly Morrowind experience on **Android handhelds, tablets and ChromeOS** while staying close to the upstream OpenMW engine.
@@ -32,7 +32,7 @@ The goal is a clean, controller-friendly Morrowind experience on **Android handh
 
 ## ⚔️ Highlights
 
-- ⚙️ **OpenMW 0.50.0 Final** engine integrated into the Android port
+- ⚙️ **OpenMW 0.51.0 Final** engine integrated into the Android port
 - 📱 Optimized for **Android handhelds, tablets, TV devices and ChromeOS**
 - 🎮 Improved **gamepad, touch, keyboard and physical mouse** support
 - 🖥️ Extended launcher with direct access to **gameplay, visual, shadow, interface and engine settings**
