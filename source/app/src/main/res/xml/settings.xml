@@ -35,12 +35,6 @@
 
     <PreferenceCategory android:title="@string/pref_ui">
         <Preference
-            android:title="@string/action_show_screen_controls"
-            android:key="pref_controls"
-            android:summary="Configure your prefered on-screen touch-controls"
-            />
-
-        <Preference
             android:key="pref_uiScaling"
             android:title="@string/pref_uiScaling" />
 
@@ -57,14 +51,31 @@
         <CheckBoxPreference
             android:key="pref_omw050_controller_menus"
             android:title="Controller Menus"
-            android:summary="Use OpenMW 0.50 gamepad-optimized menu navigation"
+            android:summary="Use OpenMW 0.51 gamepad-optimized menu navigation"
             android:defaultValue="false" />
 
         <CheckBoxPreference
             android:key="pref_omw050_controller_tooltips"
             android:title="Controller Tooltips"
             android:summary="Always show item tooltips without pressing R3"
+            android:dependency="pref_omw050_controller_menus"
             android:defaultValue="false" />
+
+        <ListPreference
+            android:key="pref_omw051_controller_trigger_thresholds"
+            android:title="Controller Trigger Sensitivity"
+            android:dialogTitle="Controller Trigger Sensitivity"
+            android:entries="@array/pref_omw051_controller_trigger_sensitivity_entries"
+            android:entryValues="@array/pref_omw051_controller_trigger_sensitivity_values"
+            android:defaultValue="30720,26624"
+            android:dependency="pref_omw050_controller_menus"
+            android:summary="%s" />
+
+        <Preference
+            android:title="@string/action_show_screen_controls"
+            android:key="pref_controls"
+            android:summary="Configure your preferred on-screen touch controls"
+            />
 
         <CheckBoxPreference
             android:key="pref_hide_controls"
@@ -100,7 +111,8 @@
 
         <CheckBoxPreference
             android:key="pref_nohighp"
-            android:title="@string/pref_nohighp"/>
+            android:title="@string/pref_nohighp"
+            android:summary="@string/pref_nohighp_summary"/>
 
     </PreferenceCategory>
 
@@ -142,7 +154,7 @@
         <CheckBoxPreference
             android:key="pref_omw050_doppler"
             android:title="Doppler Effect"
-            android:summary="Enable OpenMW 0.50 positional-audio Doppler effect (factor 0.25)"
+            android:summary="Enable OpenMW 0.51 positional-audio Doppler effect (factor 0.25)"
             android:defaultValue="true" />
 
         <CheckBoxPreference

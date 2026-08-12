@@ -118,6 +118,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.main)
         migrateObjectPagingMinSizeDefault()
         migrateOpenMw050SettingsPreferences()
+        migrateOpenMw051SettingsPreferences()
 
         val theme = prefs.getInt(getString(R.string.theme), 0)
         if(theme == 0) AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
@@ -432,7 +433,9 @@ class MainActivity : AppCompatActivity() {
 
         // try to read the files
         try {
-            base = File(Constants.OPENMW_BASE_CFG).readText()
+            base = File(Constants.OPENMW_BASE_CFG).readLines()
+                .filterNot { it.trim() == "data=\"specify-me!\"" }
+                .joinToString("\n", postfix = "\n")
             // TODO: support user custom options
             fallback = File(Constants.OPENMW_FALLBACK_CFG).readText()
         } catch (e: IOException) {
@@ -528,29 +531,65 @@ class MainActivity : AppCompatActivity() {
             Constants.RESOURCES,
             "shaders/compatibility/shadows_fragment.glsl"
         )
-        val androidGodraysShader = File(
+        val debugVert = File(
             Constants.RESOURCES,
-            "vfs/shaders/godrays_android.omwfx"
+            "shaders/compatibility/debug.vert"
         )
-        val androidLensflareShader = File(
+        val debugFrag = File(
             Constants.RESOURCES,
-            "vfs/shaders/lensflare_android.omwfx"
+            "shaders/compatibility/debug.frag"
         )
-        val androidWetworldShader = File(
+        val objectsVertexShader = File(
             Constants.RESOURCES,
-            "vfs/shaders/wetworld_android.omwfx"
+            "shaders/compatibility/objects.vert"
         )
-        val androidRainlensShader = File(
+        val objectsFragmentShader = File(
             Constants.RESOURCES,
-            "vfs/shaders/rainlens_android.omwfx"
+            "shaders/compatibility/objects.frag"
         )
-        val androidBloomShader = File(
+        val terrainVertexShader = File(
             Constants.RESOURCES,
-            "vfs/shaders/bloomlinear_android.omwfx"
+            "shaders/compatibility/terrain.vert"
         )
-        val omwfxMarker = File(
+        val terrainFragmentShader = File(
             Constants.RESOURCES,
-            "vfs/omwfx-android-preset.txt"
+            "shaders/compatibility/terrain.frag"
+        )
+        val groundcoverVertexShader = File(
+            Constants.RESOURCES,
+            "shaders/compatibility/groundcover.vert"
+        )
+        val bsDefaultVertexShader = File(
+            Constants.RESOURCES,
+            "shaders/compatibility/bs/default.vert"
+        )
+        val bsDefaultFragmentShader = File(
+            Constants.RESOURCES,
+            "shaders/compatibility/bs/default.frag"
+        )
+        val bsNoLightingVertexShader = File(
+            Constants.RESOURCES,
+            "shaders/compatibility/bs/nolighting.vert"
+        )
+        val fogShader = File(
+            Constants.RESOURCES,
+            "shaders/compatibility/fog.glsl"
+        )
+        val coreVertexHeader = File(
+            Constants.RESOURCES,
+            "shaders/lib/core/vertex.h.glsl"
+        )
+        val coreFragmentHeader = File(
+            Constants.RESOURCES,
+            "shaders/lib/core/fragment.h.glsl"
+        )
+        val esmFallbacksScript = File(
+            Constants.RESOURCES,
+            "vfs-mw/scripts/omw/esmfallbacks.lua"
+        )
+        val bundledAdjustments = File(
+            Constants.RESOURCES,
+            "vfs/shaders/adjustments.omwfx"
         )
 
         if (!File(Constants.DEFAULTS_BIN).isFile ||
@@ -560,25 +599,76 @@ class MainActivity : AppCompatActivity() {
             !fullscreenShader.isFile ||
             !shadowShader.isFile ||
             !shadowFragmentShader.isFile ||
-            !androidGodraysShader.isFile ||
-            !androidLensflareShader.isFile ||
-            !androidWetworldShader.isFile ||
-            !androidRainlensShader.isFile ||
-            !androidBloomShader.isFile ||
-            !omwfxMarker.isFile) {
+            !debugVert.isFile ||
+            !debugFrag.isFile ||
+            !objectsVertexShader.isFile ||
+            !objectsFragmentShader.isFile ||
+            !terrainVertexShader.isFile ||
+            !terrainFragmentShader.isFile ||
+            !groundcoverVertexShader.isFile ||
+            !bsDefaultVertexShader.isFile ||
+            !bsDefaultFragmentShader.isFile ||
+            !bsNoLightingVertexShader.isFile ||
+            !fogShader.isFile ||
+            !coreVertexHeader.isFile ||
+            !coreFragmentHeader.isFile ||
+            !esmFallbacksScript.isFile ||
+            !bundledAdjustments.isFile) {
             return false
         }
 
         return try {
-            // Android/GL4ES compatibility backport from OpenMW MR !3948.
-            // Uniform initializers in these GLSL 1.20 shaders fail on some GLES drivers.
+            val resourceVersion = File(Constants.RESOURCES, "version").readText().trim()
             val shadowFragmentText = shadowFragmentShader.readText()
-            !fullscreenShader.readText().contains("uniform vec2 scaling =") &&
+            val objectsVertexText = objectsVertexShader.readText()
+            val objectsFragmentText = objectsFragmentShader.readText()
+            val terrainVertexText = terrainVertexShader.readText()
+            val terrainFragmentText = terrainFragmentShader.readText()
+            val groundcoverVertexText = groundcoverVertexShader.readText()
+            val bsDefaultVertexText = bsDefaultVertexShader.readText()
+            val bsDefaultFragmentText = bsDefaultFragmentShader.readText()
+            val bsNoLightingVertexText = bsNoLightingVertexShader.readText()
+            val fogShaderText = fogShader.readText()
+            val coreVertexText = coreVertexHeader.readText()
+            val coreFragmentText = coreFragmentHeader.readText()
+
+            resourceVersion.startsWith("0.51.0") &&
+                !fullscreenShader.readText().contains("uniform vec2 scaling =") &&
                 !shadowShader.readText().contains("uniform bool useDiffuseMapForShadowAlpha =") &&
                 !shadowShader.readText().contains("uniform bool alphaTestShadows =") &&
-                shadowFragmentText.contains("OPENMW_ANDROID_GLES2_MANUAL_SHADOW_COMPARE") &&
+                !debugVert.readText().contains("uniform bool useAdvancedShader =") &&
+                !debugFrag.readText().contains("uniform bool useAdvancedShader =") &&
+                objectsFragmentText.contains("OPENMW_ANDROID_051_GL4ES_EXPLICIT_OBJECT_FOG") &&
+                // Patch 8 ports only the proven OpenMW-0.50 Android/GL4ES
+                // normal-transform compatibility substitutions. Avoid direct
+                // gl_NormalMatrix * passNormal in these 0.51 shader stages.
+                objectsVertexText.contains("vec3 viewNormal = normalToView(passNormal);") &&
+                objectsFragmentText.contains("vec3 viewNormal = normalToView(normalize(passNormal));") &&
+                terrainVertexText.contains("vec3 viewNormal = normalToView(passNormal);") &&
+                terrainFragmentText.contains("vec3 viewNormal = normalToView(normalize(passNormal));") &&
+                groundcoverVertexText.contains("vec3 viewNormal = normalToView(passNormal);") &&
+                bsDefaultVertexText.contains("vec3 viewNormal = normalToView(passNormal);") &&
+                bsDefaultFragmentText.contains("vec3 viewNormal = normalToView(normalize(passNormal));") &&
+                bsNoLightingVertexText.contains("vec3 viewNormal = normalize((gl_NormalMatrix * gl_Normal).xyz);") &&
+                fogShaderText.contains("OPENMW_ANDROID_051_GL4ES_EXPLICIT_OBJECT_FOG") &&
+                fogShaderText.contains("uniform float omwFogStart") &&
+                fogShaderText.contains("uniform float omwFogEnd") &&
+                // GL4ES on the Retroid/Adreno path cannot link OpenMW 0.51's
+                // helper-only shader objects. Patch 4 keeps the public helper
+                // API but inlines the implementations into the include headers.
+                !coreVertexText.contains("@link") &&
+                coreVertexText.contains("OPENMW_ANDROID_051_GL4ES_CORE_INLINE") &&
+                coreVertexText.contains("vec4 modelToClip(vec4 pos)") &&
+                !coreFragmentText.contains("@link") &&
+                coreFragmentText.contains("OPENMW_ANDROID_051_GL4ES_CORE_INLINE") &&
+                coreFragmentText.contains("vec4 sampleReflectionMap(vec2 uv)") &&
+                // Patch 12 / Gate F: GLES2 depth textures are sampled as regular
+                // sampler2D values and compared manually; the casting shader also
+                // uses normal GLES2 near/far clipping instead of emulating GL_DEPTH_CLAMP.
+                shadowFragmentText.contains("OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE") &&
                 !shadowFragmentText.contains("uniform sampler2DShadow") &&
-                !shadowFragmentText.contains("shadow2DProj(")
+                !shadowFragmentText.contains("shadow2DProj(") &&
+                shadowShader.readText().contains("OPENMW_ANDROID_051_GLES2_NATIVE_SHADOW_CLIPPING")
         } catch (e: IOException) {
             false
         }
@@ -599,25 +689,9 @@ class MainActivity : AppCompatActivity() {
         assetCopier.copy("libopenmw/resources", Constants.RESOURCES)
         assetCopier.copy("libopenmw/openmw", Constants.GLOBAL_CONFIG)
 
-        // Keep the Android-specific OMWFX shader outside the generated
-        // libopenmw asset tree so native bootstrap/rebuild scripts cannot
-        // accidentally remove it. Install it into the normal OpenMW VFS here.
-        val androidOmwfxShaders = listOf(
-            "godrays_android.omwfx",
-            "lensflare_android.omwfx",
-            "wetworld_android.omwfx",
-            "rainlens_android.omwfx",
-            "bloomlinear_android.omwfx"
-        )
-        androidOmwfxShaders.forEach { shaderName ->
-            val target = File(Constants.RESOURCES, "vfs/shaders/$shaderName")
-            target.parentFile?.mkdirs()
-            assets.open("android_omwfx/$shaderName").use { input ->
-                target.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-        }
+        // The non-OMWFX path uses OpenMW 0.51's bundled adjustments.omwfx.
+        // The standalone Android/OMWFX shader assets remain isolated and are
+        // still not copied into OpenMW's VFS during this gate.
 
         if (!staticFilesInstalled()) {
             throw IOException(
@@ -681,21 +755,20 @@ class MainActivity : AppCompatActivity() {
         val targetVersion = File(target, "version")
         val sourceLogo = File(source, "openmw.png")
         val targetLogo = File(target, "openmw.png")
-        val sourceVfs = File(source, "vfs")
-        val targetVfs = File(target, "vfs")
-        val sourceOmwfxMarker = File(sourceVfs, "omwfx-android-preset.txt")
-        val targetOmwfxMarker = File(targetVfs, "omwfx-android-preset.txt")
+        val sourceEsmFallbacks = File(source, "vfs-mw/scripts/omw/esmfallbacks.lua")
+        val targetEsmFallbacks = File(target, "vfs-mw/scripts/omw/esmfallbacks.lua")
 
         if (!sourceVersion.isFile || !targetVersion.isFile ||
             !sourceLogo.isFile || !targetLogo.isFile ||
-            !sourceVfs.isDirectory || !targetVfs.isDirectory ||
-            !sourceOmwfxMarker.isFile || !targetOmwfxMarker.isFile) {
+            !sourceEsmFallbacks.isFile || !targetEsmFallbacks.isFile) {
             return false
         }
 
         return try {
             sourceVersion.readText().trim() == targetVersion.readText().trim() &&
-                sourceOmwfxMarker.readText().trim() == targetOmwfxMarker.readText().trim()
+                sourceVersion.readText().trim().startsWith("0.51.0") &&
+                sourceLogo.length() == targetLogo.length() &&
+                sourceEsmFallbacks.length() == targetEsmFallbacks.length()
         } catch (e: IOException) {
             false
         }
@@ -736,16 +809,68 @@ class MainActivity : AppCompatActivity() {
         syncAndroidShaderCompatibilityResources()
     }
 
+    /**
+     * OpenMW 0.51 adds engine-owned Morrowind compatibility scripts below
+     * resources/vfs-mw. CaveBros historically stripped every data= line from
+     * the generated base config, which also removed this new internal path.
+     * Insert it before user/game data paths so engine fallbacks are loaded first
+     * while mods can still override them afterwards.
+     */
+    private fun ensureOpenMw051InternalDataPath() {
+        val configFile = File(Constants.OPENMW_CFG)
+        if (!configFile.isFile) {
+            throw IOException("OpenMW config is missing before vfs-mw migration: ${configFile.absolutePath}")
+        }
+
+        val internalPath = Constants.USER_FILE_STORAGE + "/resources/vfs-mw"
+        val internalLine = "data=\"$internalPath\""
+        val original = configFile.readLines()
+        val filtered = original.filterNot { line ->
+            val trimmed = line.trim()
+            trimmed.startsWith("data=") && trimmed.contains("/resources/vfs-mw")
+        }.toMutableList()
+
+        val firstData = filtered.indexOfFirst { it.trim().startsWith("data=") }
+        if (firstData >= 0) {
+            filtered.add(firstData, internalLine)
+        } else {
+            filtered.add(internalLine)
+        }
+
+        configFile.writeText(filtered.joinToString("\n", postfix = "\n"))
+
+        val fallbackScript = File(internalPath, "scripts/omw/esmfallbacks.lua")
+        if (!fallbackScript.isFile) {
+            throw IOException("OpenMW 0.51 vfs-mw fallback script is missing: ${fallbackScript.absolutePath}")
+        }
+
+        Log.i(TAG, "OpenMW 0.51 internal data path enabled: $internalPath")
+    }
+
     private fun syncAndroidShaderCompatibilityResources() {
-        // Core compatibility shaders must be refreshed from the APK itself on every
-        // development launch. VERSION_CODE can stay unchanged, so both the private
-        // resource tree and the writable user mirror may otherwise keep stale files.
-        // water.frag carries the Android WetWorld water-alpha marker from v14.5.5.
+        // VERSION_CODE can stay unchanged between development APK rebuilds.
+        // Refresh the Patch-12 GL4ES compatibility + shadow shader set from the APK on every launch so
+        // the private tree and writable user mirror cannot retain stale 0.50/0.51 files.
         val coreRelativePaths = listOf(
             "shaders/compatibility/fullscreen_tri.vert",
             "shaders/compatibility/shadowcasting.vert",
             "shaders/compatibility/shadows_fragment.glsl",
-            "shaders/compatibility/water.frag"
+            "shaders/compatibility/debug.vert",
+            "shaders/compatibility/debug.frag",
+            "shaders/compatibility/objects.vert",
+            "shaders/compatibility/objects.frag",
+            "shaders/compatibility/terrain.vert",
+            "shaders/compatibility/terrain.frag",
+            "shaders/compatibility/groundcover.vert",
+            "shaders/compatibility/groundcover.frag",
+            "shaders/compatibility/water.frag",
+            "shaders/compatibility/bs/default.vert",
+            "shaders/compatibility/bs/default.frag",
+            "shaders/compatibility/bs/nolighting.vert",
+            "shaders/compatibility/bs/nolighting.frag",
+            "shaders/compatibility/fog.glsl",
+            "shaders/lib/core/vertex.h.glsl",
+            "shaders/lib/core/fragment.h.glsl"
         )
 
         coreRelativePaths.forEach { relativePath ->
@@ -762,81 +887,329 @@ class MainActivity : AppCompatActivity() {
 
             userTarget.parentFile?.mkdirs()
             privateTarget.copyTo(userTarget, overwrite = true)
-
-            if (relativePath == "shaders/compatibility/shadows_fragment.glsl") {
-                val shadowFragmentText = try {
-                    userTarget.readText()
-                } catch (e: IOException) {
-                    ""
-                }
-
-                val hasManualShadowCompare =
-                    shadowFragmentText.contains("OPENMW_ANDROID_GLES2_MANUAL_SHADOW_COMPARE") &&
-                        !shadowFragmentText.contains("uniform sampler2DShadow") &&
-                        !shadowFragmentText.contains("shadow2DProj(")
-
-                if (!hasManualShadowCompare) {
-                    throw IOException(
-                        "Runtime shadows_fragment.glsl is not the GLES2 manual-shadow version: ${userTarget.absolutePath}"
-                    )
-                }
-
-                Log.i(
-                    TAG,
-                    "Synced GLES2 manual shadow receiver shader; marker=true; size=${userTarget.length()}"
-                )
-            }
-
-            if (relativePath == "shaders/compatibility/water.frag") {
-                val hasWetWorldWaterMask = try {
-                    userTarget.readText().contains("@wetWorldWaterMask")
-                } catch (e: IOException) {
-                    false
-                }
-
-                if (!hasWetWorldWaterMask) {
-                    throw IOException(
-                        "Runtime water.frag is missing the WetWorld water-mask marker: ${userTarget.absolutePath}"
-                    )
-                }
-
-                Log.i(
-                    TAG,
-                    "Synced runtime water.frag for WetWorld mask; marker=true; size=${userTarget.length()}"
-                )
-            }
         }
 
-        // Android-owned OMWFX shaders live as standalone APK assets. Refresh
-        // BOTH the private resource source and the writable user mirror on every
-        // launch. This is intentional: VERSION_CODE can stay unchanged between
-        // development APKs, and merely copying Constants.RESOURCES -> user VFS
-        // would otherwise keep an older shader body indefinitely.
-        val androidOmwfxShaders = listOf(
-            "godrays_android.omwfx",
-            "lensflare_android.omwfx",
-            "wetworld_android.omwfx",
-            "rainlens_android.omwfx",
-            "bloomlinear_android.omwfx"
+        // Publish only the device-proven OpenMW 0.51 Android OMWFX stack.
+        // WetWorld runs before the optical passes, RainLens runs last, and the
+        // native water-alpha marker excludes actual water from WetWorld.
+        val bloomShader = "gateh_bloom051.omwfx"
+        val bloomPrivateTarget = File(Constants.RESOURCES, "vfs/shaders/$bloomShader")
+        val bloomUserTarget = File(
+            Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/",
+            bloomShader
         )
 
-        androidOmwfxShaders.forEach { shaderName ->
-            val privateTarget = File(Constants.RESOURCES, "vfs/shaders/$shaderName")
-            val userTarget = File(
+        bloomPrivateTarget.parentFile?.mkdirs()
+        assets.open("android_omwfx/$bloomShader").use { input ->
+            bloomPrivateTarget.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        bloomUserTarget.parentFile?.mkdirs()
+        bloomPrivateTarget.copyTo(bloomUserTarget, overwrite = true)
+
+        val lensflareShader = "lensflare_android_051_rayocc.omwfx"
+        val lensflarePrivateTarget = File(Constants.RESOURCES, "vfs/shaders/$lensflareShader")
+        val lensflareUserTarget = File(
+            Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/",
+            lensflareShader
+        )
+
+        lensflarePrivateTarget.parentFile?.mkdirs()
+        assets.open("android_omwfx/$lensflareShader").use { input ->
+            lensflarePrivateTarget.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        lensflareUserTarget.parentFile?.mkdirs()
+        lensflarePrivateTarget.copyTo(lensflareUserTarget, overwrite = true)
+
+        val godraysShader = "godrays_android_051_depthfixed_vivid.omwfx"
+        val godraysPrivateTarget = File(Constants.RESOURCES, "vfs/shaders/$godraysShader")
+        val godraysUserTarget = File(
+            Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/",
+            godraysShader
+        )
+
+        godraysPrivateTarget.parentFile?.mkdirs()
+        assets.open("android_omwfx/$godraysShader").use { input ->
+            godraysPrivateTarget.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        godraysUserTarget.parentFile?.mkdirs()
+        godraysPrivateTarget.copyTo(godraysUserTarget, overwrite = true)
+
+        val rainLensShader = "rainlens_android_051_v12_dense.omwfx"
+        val rainLensPrivateTarget = File(Constants.RESOURCES, "vfs/shaders/$rainLensShader")
+        val rainLensUserTarget = File(
+            Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/",
+            rainLensShader
+        )
+
+        rainLensPrivateTarget.parentFile?.mkdirs()
+        assets.open("android_omwfx/$rainLensShader").use { input ->
+            rainLensPrivateTarget.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        rainLensUserTarget.parentFile?.mkdirs()
+        rainLensPrivateTarget.copyTo(rainLensUserTarget, overwrite = true)
+
+        val wetWorldShader = "wetworld_android_051_weather.omwfx"
+        val wetWorldPrivateTarget = File(Constants.RESOURCES, "vfs/shaders/$wetWorldShader")
+        val wetWorldUserTarget = File(
+            Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/",
+            wetWorldShader
+        )
+
+        wetWorldPrivateTarget.parentFile?.mkdirs()
+        assets.open("android_omwfx/$wetWorldShader").use { input ->
+            wetWorldPrivateTarget.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        wetWorldUserTarget.parentFile?.mkdirs()
+        wetWorldPrivateTarget.copyTo(wetWorldUserTarget, overwrite = true)
+
+        // Remove obsolete development techniques so shaders.yaml cannot bind
+        // stale values to superseded uniforms.
+        val obsoleteAndroidOmwfxShaders = listOf(
+            "gateh_probe.omwfx",
+            "bloomlinear_android.omwfx",
+            "lensflare_android.omwfx",
+            "lensflare_android_051.omwfx",
+            "lensflare_android_051_occ.omwfx",
+            "lensflare_android_051_depthocc.omwfx",
+            "lensflare_android_051_h2f.omwfx",
+            "godrays_android.omwfx",
+            "godrays_android_051.omwfx",
+            "godrays_android_051_rayocc.omwfx",
+            "godrays_android_051_dynamic.omwfx",
+            "godrays_android_051_depthfixed.omwfx",
+            "rainlens_android.omwfx",
+            "rainlens_android_051_weather.omwfx",
+            "rainlens_android_051_teardrops.omwfx",
+            "rainlens_android_051_v12.omwfx",
+            "wetworld_android.omwfx"
+        )
+        obsoleteAndroidOmwfxShaders.forEach { shaderName ->
+            File(Constants.RESOURCES, "vfs/shaders/$shaderName").delete()
+            File(
                 Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/",
                 shaderName
-            )
-
-            privateTarget.parentFile?.mkdirs()
-            assets.open("android_omwfx/$shaderName").use { input ->
-                privateTarget.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            userTarget.parentFile?.mkdirs()
-            privateTarget.copyTo(userTarget, overwrite = true)
+            ).delete()
         }
+
+        val bloomText = bloomUserTarget.readText()
+        if (!bloomText.contains("passes = nomipmap, horizontal, vertical, final;") ||
+            !bloomText.contains("internal_format = rgb16f;") ||
+            !bloomText.contains("source_type = half_float;") ||
+            !bloomText.contains("uniform_float uThreshold {\n    default = 0.30;") ||
+            !bloomText.contains("uniform_float uSkyFactor {\n    default = 0.60;") ||
+            !bloomText.contains("uniform_float uRadius {\n    default = 0.55;") ||
+            !bloomText.contains("uniform_float uStrength {\n    default = 0.35;") ||
+            bloomText.count { it == '\n' } < 150) {
+            throw IOException("OpenMW 0.51 Android OMWFX bloom payload is invalid")
+        }
+
+        val lensflareText = lensflareUserTarget.readText()
+        if (!lensflareText.contains("uniform_float flare_strength {\n    default = 0.27;") ||
+            !lensflareText.contains("uniform_float halo_size {\n    default = 0.18;") ||
+            !lensflareText.contains("uniform_float ghost_strength {\n    default = 0.13;") ||
+            !lensflareText.contains("vec4 viewDir = omw.viewMatrix * vec4(discDir, 0.0);") ||
+            !lensflareText.contains("omw.sunVis * clamp(omw.sunOcclusion, 0.0, 1.0) * edgeFade051(sunUv)") ||
+            lensflareText.contains("sunOcclusion(") ||
+            lensflareText.contains("sunOcclusion051(") ||
+            lensflareText.contains("omw_GetLinearDepth(") ||
+            lensflareText.contains("omw_GetDepth(") ||
+            lensflareText.contains("Disable_SunGlare") ||
+            !lensflareText.contains("passes = main;") ||
+            !lensflareText.contains("version = \"2.1-051-rayocc\";") ||
+            lensflareText.count { it == '\n' } < 100) {
+            throw IOException("OpenMW 0.51 Android OMWFX CPU-ray lens flare payload is invalid")
+        }
+
+        val godraysText = godraysUserTarget.readText()
+        if (!godraysText.contains("uniform_float ray_strength {\n    default = 0.60;") ||
+            !godraysText.contains("uniform_float ray_length {\n    default = 0.85;") ||
+            !godraysText.contains("uniform_float sun_glow_strength {\n    default = 0.65;") ||
+            !godraysText.contains("uniform_float direct_glare_strength {\n    default = 0.48;") ||
+            !godraysText.contains("vec4 viewDir = omw.viewMatrix * vec4(discDir, 0.0);") ||
+            !godraysText.contains("clamp(omw.sunOcclusion, 0.0, 1.0)") ||
+            !godraysText.contains("float depth = omw_GetDepth(clamp(uv, vec2(0.001), vec2(0.999)));") ||
+            !godraysText.contains("float shaftContrast = smoothstep(0.08, 0.92, shafts);") ||
+            !godraysText.contains("shafts = mix(shafts, shaftContrast, 0.35);") ||
+            !godraysText.contains("light += warmColor * shaftIntensity * 0.78;") ||
+            !godraysText.contains("light += sunColor * directSun * direct_glare_strength * 0.60 * glowVisibility;") ||
+            godraysText.contains("direct_glare_strength * 0.80 * glowVisibility;") ||
+            !godraysText.contains("float directSun = 1.0 - smoothstep(0.035, 0.48, centerDistance);") ||
+            godraysText.contains("omw_GetLinearDepth(") ||
+            godraysText.contains("Disable_SunGlare") ||
+            !godraysText.contains("for (int i = 0; i < 16; i += 1)") ||
+            !godraysText.contains("passes = main;") ||
+            !godraysText.contains("version = \"3.4-051-depthfixed-vivid-softglare\";") ||
+            godraysText.count { it == '\n' } < 150) {
+            throw IOException("OpenMW 0.51 Android OMWFX calibrated Godrays/Sun-Glow payload is invalid")
+        }
+
+        val rainLensText = rainLensUserTarget.readText()
+        if (!rainLensText.contains("uniform_float rainlens_strength_v34 {\n    default = 0.72;") ||
+            !rainLensText.contains("uniform_float rainlens_refraction_v34 {\n    default = 0.92;") ||
+            !rainLensText.contains("uniform_float rainlens_density_v34 {\n    default = 0.90;") ||
+            !rainLensText.contains("float hash21051(vec2 p)") ||
+            !rainLensText.contains("vec4 movingDrop051(") ||
+            !rainLensText.contains("p.y += timeValue * speed;") ||
+            !rainLensText.contains("float timeValue = omw.simulationTime;") ||
+            !rainLensText.contains("float currentRain = rainForWeather051(omw.weatherID);") ||
+            !rainLensText.contains("float nextRain = rainForWeather051(omw.nextWeatherID);") ||
+            !rainLensText.contains("clamp(omw.weatherTransition, 0.0, 1.0)") ||
+            !rainLensText.contains("vec4 drop = movingDrop051(") ||
+            !rainLensText.contains("omw_TexCoord, 5.6, 0.215, 19.7, timeValue, wind, density") ||
+            !rainLensText.contains("float threshold = mix(0.94, 0.72, clamp(density, 0.0, 1.0));") ||
+            !rainLensText.contains("float refractionMix = clamp(mask * 0.82, 0.0, 0.82);") ||
+            !rainLensText.contains("result += vec3(0.028) * drop.w * rain;") ||
+            !rainLensText.contains("flags = Disable_Interiors, Disable_Underwater;") ||
+            !rainLensText.contains("version = \"4.3-051-rainlens-v12-dense\";") ||
+            rainLensText.contains("omw.simulationTime * 0.001") ||
+            rainLensText.contains("rainHash3051(") ||
+            rainLensText.contains("teardropLayer051(") ||
+            rainLensText.count { it == '\n' } < 160) {
+            throw IOException("OpenMW 0.51 Android OMWFX RainLens payload is invalid")
+        }
+
+        val wetWorldText = wetWorldUserTarget.readText()
+        if (!wetWorldText.contains("uniform_float wet_strength_v35 {\n    default = 0.92;") ||
+            !wetWorldText.contains("uniform_float wet_darkening_v35 {\n    default = 0.30;") ||
+            !wetWorldText.contains("uniform_float wet_sheen_v35 {\n    default = 0.34;") ||
+            !wetWorldText.contains("uniform_float puddle_strength_v35 {\n    default = 0.62;") ||
+            !wetWorldText.contains("float rainFactor051()") ||
+            !wetWorldText.contains("float valueNoise051(vec2 p)") ||
+            !wetWorldText.contains("vec3 reconstructedWorldNormal051(vec2 uv)") ||
+            !wetWorldText.contains("float upFacing = smoothstep(0.30, 0.76, abs(n.z));") ||
+            !wetWorldText.contains("float puddleMask = smoothstep(0.56, 0.76, puddleField)") ||
+            !wetWorldText.contains("if (base.a < 0.25)") ||
+            !wetWorldText.contains("flags = Disable_Interiors, Disable_Underwater;") ||
+            !wetWorldText.contains("version = \"5.0-051-weather-puddles\";") ||
+            wetWorldText.contains("dFdx(") ||
+            wetWorldText.contains("dFdy(") ||
+            wetWorldText.contains("sin(") ||
+            wetWorldText.count { it == '\n' } < 170) {
+            throw IOException("OpenMW 0.51 Android OMWFX WetWorld/Puddle payload is invalid")
+        }
+
+        val waterShaderText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/water.frag"
+        ).readText()
+        if (!waterShaderText.contains("OPENMW_ANDROID_051_WETWORLD_WATER_MASK") ||
+            !waterShaderText.contains("#if @wetWorldWaterMask") ||
+            !waterShaderText.contains("gl_FragData[0].a = 0.0;") ||
+            !waterShaderText.contains("rainCombined(position.xy/1000.0, waterTimer)")) {
+            throw IOException("Runtime OpenMW 0.51 WetWorld water exclusion/ripple shader is missing")
+        }
+
+        val fullscreenText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/fullscreen_tri.vert"
+        ).readText()
+        val shadowCastingText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/shadowcasting.vert"
+        ).readText()
+        val shadowReceiverText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/shadows_fragment.glsl"
+        ).readText()
+        val objectsVertexText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/objects.vert"
+        ).readText()
+        val objectsFragmentText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/objects.frag"
+        ).readText()
+        val terrainVertexText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/terrain.vert"
+        ).readText()
+        val terrainFragmentText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/terrain.frag"
+        ).readText()
+        val groundcoverVertexText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/groundcover.vert"
+        ).readText()
+        val groundcoverFragmentText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/groundcover.frag"
+        ).readText()
+        val bsDefaultVertexText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/bs/default.vert"
+        ).readText()
+        val bsDefaultFragmentText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/bs/default.frag"
+        ).readText()
+        val bsNoLightingVertexText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/bs/nolighting.vert"
+        ).readText()
+        val bsNoLightingFragmentText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/bs/nolighting.frag"
+        ).readText()
+        val fogShaderText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/fog.glsl"
+        ).readText()
+        val coreVertexText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/lib/core/vertex.h.glsl"
+        ).readText()
+        val coreFragmentText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/lib/core/fragment.h.glsl"
+        ).readText()
+
+        if (fullscreenText.contains("uniform vec2 scaling =") ||
+            shadowCastingText.contains("uniform bool useDiffuseMapForShadowAlpha =") ||
+            shadowCastingText.contains("uniform bool alphaTestShadows =")) {
+            throw IOException("Runtime OpenMW 0.51 compatibility shaders still contain GL4ES-hostile uniform initializers")
+        }
+
+        if (!shadowReceiverText.contains("OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE") ||
+            shadowReceiverText.contains("uniform sampler2DShadow") ||
+            shadowReceiverText.contains("shadow2DProj(") ||
+            !shadowCastingText.contains("OPENMW_ANDROID_051_GLES2_NATIVE_SHADOW_CLIPPING") ||
+            shadowCastingText.contains("gl_Position.z = clamp(gl_Position.z, -gl_Position.w, gl_Position.w);")) {
+            throw IOException("Runtime OpenMW 0.51 Android GLES2 shadow compatibility shaders are missing")
+        }
+
+        if (coreVertexText.contains("@link") ||
+            !coreVertexText.contains("OPENMW_ANDROID_051_GL4ES_CORE_INLINE") ||
+            coreFragmentText.contains("@link") ||
+            !coreFragmentText.contains("OPENMW_ANDROID_051_GL4ES_CORE_INLINE")) {
+            throw IOException("Runtime OpenMW 0.51 core shader helpers are not GL4ES-inline compatible")
+        }
+
+        if (!objectsVertexText.contains("vec3 viewNormal = normalToView(passNormal);") ||
+            !objectsFragmentText.contains("vec3 viewNormal = normalToView(normalize(passNormal));") ||
+            !terrainVertexText.contains("vec3 viewNormal = normalToView(passNormal);") ||
+            !terrainFragmentText.contains("vec3 viewNormal = normalToView(normalize(passNormal));") ||
+            !groundcoverVertexText.contains("vec3 viewNormal = normalToView(passNormal);") ||
+            !bsDefaultVertexText.contains("vec3 viewNormal = normalToView(passNormal);") ||
+            !bsDefaultFragmentText.contains("vec3 viewNormal = normalToView(normalize(passNormal));") ||
+            !bsNoLightingVertexText.contains("vec3 viewNormal = normalize((gl_NormalMatrix * gl_Normal).xyz);")) {
+            throw IOException("Runtime OpenMW 0.51 Android GL4ES normal-transform compatibility shaders are missing")
+        }
+
+        if (!objectsFragmentText.contains("OPENMW_ANDROID_051_GL4ES_EXPLICIT_OBJECT_FOG") ||
+            !fogShaderText.contains("OPENMW_ANDROID_051_GL4ES_EXPLICIT_OBJECT_FOG") ||
+            !fogShaderText.contains("uniform vec4 omwFogColor") ||
+            !fogShaderText.contains("uniform float omwFogStart") ||
+            !fogShaderText.contains("uniform float omwFogEnd")) {
+            throw IOException("Runtime OpenMW 0.51 Android explicit GL4ES object-fog shaders are missing")
+        }
+
+        if (!objectsFragmentText.contains("OPENMW_ANDROID_051_GL4ES_DISABLE_ADDITIVE_FOG") ||
+            objectsFragmentText.contains("#define ADDITIVE_BLENDING") ||
+            objectsFragmentText.contains("OPENMW_ANDROID_051_SHADER_PREFIX_TAG_OBJECTS") ||
+            bsDefaultFragmentText.contains("OPENMW_ANDROID_051_SHADER_PREFIX_TAG_BS_DEFAULT") ||
+            bsNoLightingFragmentText.contains("OPENMW_ANDROID_051_SHADER_PREFIX_TAG_BS_NOLIGHTING") ||
+            groundcoverFragmentText.contains("OPENMW_ANDROID_051_SHADER_PREFIX_TAG_GROUNDCOVER")) {
+            throw IOException("Runtime OpenMW 0.51 Android GL4ES additive-fog compatibility shaders are missing or diagnostics remain")
+        }
+
+        Log.i(
+            TAG,
+            "Synced OpenMW 0.51 Android OMWFX release payload: WetWorld, Godrays, Lensflare, Bloom and RainLens"
+        )
     }
 
     private fun availableOmwfxChain(): String {
@@ -925,7 +1298,7 @@ class MainActivity : AppCompatActivity() {
     /**
      * Applies the launcher Shadow settings directly to OpenMW's user settings.
      *
-     * OpenMW 0.50 already provides the complete shadow-mapping implementation.
+     * OpenMW 0.51 provides the complete shadow-mapping implementation.
      * On Android/GL4ES, Quality keeps one stable shadow map and controls its
      * resolution only. Distance controls the maximum shadow range. A 0.75 fade start gives the outer 25 percent of
      * the selected range to smoothly fade shadows out (and back in when approaching).
@@ -968,9 +1341,99 @@ class MainActivity : AppCompatActivity() {
 
         Log.i(
             TAG,
-            "Applied OpenMW 0.50 shadows: enabled=${prefs.getBoolean("gs_enable_shadows", false)}, " +
+            "Applied OpenMW 0.51 Android shadows: enabled=${prefs.getBoolean("gs_enable_shadows", false)}, " +
                 "quality=$quality (${shadowMapCount}x${shadowMapResolution}), " +
                 "distance=$maximumShadowDistance, fadeStart=0.75"
+        )
+    }
+
+    /**
+     * WetWorld runs first so wet roads and procedural puddles feed the optical
+     * stack. RainLens remains last, and OpenMW 0.51 weather IDs drive both
+     * weather effects through smooth transitions.
+     */
+    private fun applyOpenMw051RuntimeSettings() {
+        val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
+        val selectedShaderPreset = prefs.getString("pref_shadersDir_v2", "none") ?: "none"
+        val omwfxSelected = selectedShaderPreset == OMWFX_PRESET_VALUE
+        val postProcessingChain = if (omwfxSelected) {
+            OMWFX_RECOMMENDED_CHAIN.joinToString(",")
+        } else {
+            "adjustments"
+        }
+
+        if (omwfxSelected) {
+            val wetWorldFile = File(
+                Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/wetworld_android_051_weather.omwfx"
+            )
+            if (!wetWorldFile.isFile) {
+                throw IOException(
+                    "OMWFX was selected, but wetworld_android_051_weather.omwfx is missing: " +
+                        wetWorldFile.absolutePath
+                )
+            }
+
+            val bloomFile = File(
+                Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/gateh_bloom051.omwfx"
+            )
+            if (!bloomFile.isFile) {
+                throw IOException(
+                    "OMWFX was selected, but gateh_bloom051.omwfx is missing: " +
+                        bloomFile.absolutePath
+                )
+            }
+
+            val lensflareFile = File(
+                Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/lensflare_android_051_rayocc.omwfx"
+            )
+            if (!lensflareFile.isFile) {
+                throw IOException(
+                    "OMWFX was selected, but lensflare_android_051_rayocc.omwfx is missing: " +
+                        lensflareFile.absolutePath
+                )
+            }
+
+            val godraysFile = File(
+                Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/godrays_android_051_depthfixed_vivid.omwfx"
+            )
+            if (!godraysFile.isFile) {
+                throw IOException(
+                    "OMWFX was selected, but godrays_android_051_depthfixed_vivid.omwfx is missing: " +
+                        godraysFile.absolutePath
+                )
+            }
+
+            val rainLensFile = File(
+                Constants.USER_FILE_STORAGE + "/resources/vfs/shaders/rainlens_android_051_v12_dense.omwfx"
+            )
+            if (!rainLensFile.isFile) {
+                throw IOException(
+                    "OMWFX was selected, but rainlens_android_051_v12_dense.omwfx is missing: " +
+                        rainLensFile.absolutePath
+                )
+            }
+        }
+
+        updateSettingsSection(
+            settingsFile,
+            "Post Processing",
+            linkedMapOf(
+                "enabled" to "true",
+                "chain" to postProcessingChain,
+                "transparent postpass" to if (omwfxSelected) "true" else if (
+                    prefs.getBoolean("gs_transparent_postpass", false)
+                ) "true" else "false"
+            )
+        )
+
+        // Keep the complete device-proven Android shadow selection unchanged.
+        applyShadowSettings()
+
+        Log.i(
+            TAG,
+            "OpenMW 0.51 Android release runtime: shadows=launcher-controlled, " +
+                "postProcessing=true, transparentPostpass=${if (omwfxSelected) "forced-on" else "launcher"}, " +
+                "chain=$postProcessingChain, omwfx=${if (omwfxSelected) "enabled" else "off"}"
         )
     }
 
@@ -1017,7 +1480,7 @@ class MainActivity : AppCompatActivity() {
 
             null
         } catch (e: IOException) {
-            Log.w(TAG, "Could not read OpenMW 0.50 setting [$sectionName] $key", e)
+            Log.w(TAG, "Could not read OpenMW 0.51 setting [$sectionName] $key", e)
             null
         }
     }
@@ -1077,10 +1540,71 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Write only the four launcher-owned OpenMW 0.50 settings to the user's
+     * Import the Android-relevant settings added by OpenMW 0.51. Exact custom
+     * trigger thresholds from a hand-edited settings.cfg are preserved as one
+     * pair even if they are not one of the launcher presets.
+     */
+    private fun migrateOpenMw051SettingsPreferences() {
+        val migrationKey = "migration_openmw051_launcher_settings_v1"
+        if (prefs.getBoolean(migrationKey, false)) {
+            return
+        }
+
+        val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
+
+        val triggerPress = readOpenMwSetting(settingsFile, "GUI", "controller trigger press")
+            ?.toIntOrNull()
+            ?.coerceIn(1, 32767)
+            ?: 30720
+        val triggerRelease = readOpenMwSetting(settingsFile, "GUI", "controller trigger release")
+            ?.toIntOrNull()
+            ?.coerceIn(0, minOf(32766, triggerPress - 1))
+            ?: minOf(26624, triggerPress - 1)
+        val groundcoverPointLighting =
+            !readOpenMwSetting(settingsFile, "Groundcover", "point lighting")
+                .equals("false", ignoreCase = true)
+
+        prefs.edit()
+            .putString(
+                "pref_omw051_controller_trigger_thresholds",
+                "$triggerPress,$triggerRelease"
+            )
+            .putBoolean("gs_groundcover_point_lighting", groundcoverPointLighting)
+            .putBoolean(migrationKey, true)
+            .apply()
+
+        Log.i(
+            TAG,
+            "Imported OpenMW 0.51 launcher settings: " +
+                "controllerTrigger=$triggerPress/$triggerRelease, " +
+                "groundcoverPointLighting=$groundcoverPointLighting"
+        )
+    }
+
+    private fun controllerTriggerThresholds(): Pair<Int, Int> {
+        val encoded = prefs.getString(
+            "pref_omw051_controller_trigger_thresholds",
+            "30720,26624"
+        ) ?: "30720,26624"
+        val values = encoded.split(',', limit = 2)
+        val triggerPress = values.getOrNull(0)
+            ?.trim()
+            ?.toIntOrNull()
+            ?.coerceIn(1, 32767)
+            ?: 30720
+        val triggerRelease = values.getOrNull(1)
+            ?.trim()
+            ?.toIntOrNull()
+            ?.coerceIn(0, minOf(32766, triggerPress - 1))
+            ?: minOf(26624, triggerPress - 1)
+        return triggerPress to triggerRelease
+    }
+
+    /**
+     * Write only launcher-owned controller/audio and Groundcover settings to
      * settings.cfg. Unrelated settings and OMWFX/F2 edits remain untouched.
      */
-    private fun applyOpenMw050LauncherSettings() {
+    private fun applyOpenMw051LauncherSettings() {
         val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
 
         val controllerMenus =
@@ -1091,12 +1615,17 @@ class MainActivity : AppCompatActivity() {
             prefs.getBoolean("pref_omw050_doppler", true)
         val cameraListener =
             prefs.getBoolean("pref_omw050_camera_listener", false)
+        val (triggerPress, triggerRelease) = controllerTriggerThresholds()
+        val groundcoverPointLighting =
+            prefs.getBoolean("gs_groundcover_point_lighting", true)
 
         updateSettingsSection(
             settingsFile,
             "GUI",
             linkedMapOf(
                 "controller menus" to if (controllerMenus) "true" else "false",
+                "controller trigger press" to triggerPress.toString(),
+                "controller trigger release" to triggerRelease.toString(),
                 "controller tooltips" to if (controllerTooltips) "true" else "false"
             )
         )
@@ -1110,13 +1639,23 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
+        updateSettingsSection(
+            settingsFile,
+            "Groundcover",
+            linkedMapOf(
+                "point lighting" to if (groundcoverPointLighting) "true" else "false"
+            )
+        )
+
         Log.i(
             TAG,
-            "Applied OpenMW 0.50 launcher settings: " +
+            "Applied OpenMW 0.51 launcher settings: " +
                 "controllerMenus=$controllerMenus, " +
+                "controllerTrigger=$triggerPress/$triggerRelease, " +
                 "controllerTooltips=$controllerTooltips, " +
                 "doppler=${if (dopplerEnabled) "0.25" else "0.0"}, " +
-                "cameraListener=$cameraListener"
+                "cameraListener=$cameraListener, " +
+                "groundcoverPointLighting=$groundcoverPointLighting"
         )
     }
     /**
@@ -1145,7 +1684,7 @@ class MainActivity : AppCompatActivity() {
                     )
                 )
 
-                Log.i(TAG, "Enabled OMWFX Android v14.6.2 / OpenMW 0.50 preset with WetWorld v2.4 + RainLens v1.2 + Godrays + Lensflare + balanced Android Bloom: $chain")
+                Log.i(TAG, "Enabled OMWFX OpenMW 0.51 preset with weather WetWorld/puddles + Tex_Depth Godrays + CPU-ray Lensflare + calibrated Bloom + weather RainLens: $chain")
             }
         } else if (previouslyApplied == OMWFX_PRESET_VALUE) {
             val settingsFile = File(Constants.USER_CONFIG, "settings.cfg")
@@ -1268,17 +1807,16 @@ class MainActivity : AppCompatActivity() {
                 // embedded runtime. This also repairs stale/incomplete resource
                 // directories left behind by older installs.
                 ensureUserResourcesCurrent()
+                ensureOpenMw051InternalDataPath()
 
-                // Apply the launcher-level shader preset only after the writable
-                // VFS mirror is guaranteed to contain the packaged OMWFX files.
-                applyShaderPresetSettings()
+                // Keep the retained 0.50 controller/audio choices and apply the
+                // Android-relevant controller/Groundcover additions from 0.51.
+                // The older SharedPreferences keys intentionally remain stable.
+                applyOpenMw051LauncherSettings()
 
-                // Restore the launcher-owned OpenMW 0.50 controller/audio settings.
-                applyOpenMw050LauncherSettings()
-
-                // Apply native OpenMW 0.50 shadow mapping settings. This touches only
-                // the [Shadows] section and does not modify OMWFX/post-processing.
-                applyShadowSettings()
+                // Android shadows remain launcher-controlled. OMWFX forces the
+                // transparent postpass for WetWorld and the optical stack.
+                applyOpenMw051RuntimeSettings()
 
                 //val displayInCutoutArea = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_display_cutout_area", false)
                 obtainFixedScreenResolution()
@@ -1858,6 +2396,17 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
+        val versionInfo = android.widget.TextView(this).apply {
+            text = "ARM64 \u2022 v${BuildConfig.VERSION_NAME}"
+            textSize = 16f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = android.view.Gravity.START
+            textAlignment = android.view.View.TEXT_ALIGNMENT_VIEW_START
+            setTextColor(primaryColor)
+            setPadding(0, launcherDp(8), 0, 0)
+        }
+        content.addView(versionInfo)
+
         val portInfo = android.widget.TextView(this).apply {
             text =
                 "This port by Andreas \"Andiweli\" Stürmer\n" +
@@ -2007,50 +2556,21 @@ class MainActivity : AppCompatActivity() {
         var resolutionX = 0
         var resolutionY = 0
 
-        // v14.0 / OpenMW 0.50 Android OMWFX launcher preset state.
+        // OpenMW 0.51 Android OMWFX launcher preset state.
         private const val OMWFX_PRESET_VALUE = "omwfx"
+        // Historical migration key: keep it stable so existing installations
+        // are not reset to the OMWFX preset during release consolidation.
         private const val OMWFX_APPLIED_PRESET_KEY =
-            "launcher_shader_preset_applied_v20_rainlens_android_v12"
+            "launcher_shader_preset_applied_v35_openmw051_gate_h5a"
 
-        // Android/GL4ES chain:
-        // - Both OMWFX underwater techniques remain disabled because they do
-        //   not render correctly on the tested Android GLES2 path.
-        // - ssao_hq remains disabled because the Adreno GLES2 compiler rejects
-        //   its GLSL 1.20 source.
-        // - wetworld_android replaces the desktop WetWorld pass. v13.23 uses
-        //   finite differences entirely inside the fragment pass (no dFdx/dFdy)
-        //   and adds procedural puddle patches, because the v13.22 derivative
-        //   version is rejected by the Adreno/GL4ES generated vertex shader.
-        // - rainlens_android is the lightweight GLSL-1.20-safe camera-lens
-        //   raindrop pass. It reacts only to OpenMW weather IDs Rain=4 and
-        //   Thunderstorm=5, follows weather transitions and is disabled in
-        //   interiors and underwater. No extra texture or render target is used.
-        // - godrays_android is the lightweight GLSL-1.20-safe radial sun-shaft
-        //   pass bundled by this launcher. v13.23 softens its sampling bands,
-        //   reduces strength toward v13.21 and occludes the direct sun glow.
-        // - lensflare_android is a mobile flare based on the community OMWFX
-        //   sun-glare approach: soft halo plus two lens ghosts.
-        // - bloomlinear_android is OpenMW's linear bloom shader with Android-safe
-        //   visual defaults: sky factor 0.25, strength 0.20 and threshold 0.40.
-        //   A unique technique name prevents old bloomlinear values in shaders.yaml
-        //   from overriding these v13.23.2 defaults.
-        //
-        // The tested Android payload currently contains no SSR.omwfx, so do not
-        // advertise or depend on an SSR stage. WetWorld v2 provides its own broad
-        // wet sheen/puddle reflection and the optical sun effects remain directly
-        // before Bloom/HDR so Bloom can spread their glow naturally.
-        //
-        // Bumping OMWFX_APPLIED_PRESET_KEY forces one migration of existing
-        // OMWFX selections to the v14.6.2 RainLens v1.2 chain. RainLens intentionally
-        // runs directly after WetWorld so the later optical/bloom stages retain
-        // the established Android tuning.
+        // Final Android/GL4ES chain. WetWorld runs first so its wet surfaces
+        // feed the optical stack. RainLens remains last.
         private val OMWFX_RECOMMENDED_CHAIN = listOf(
-            "wetworld_android",
-            "rainlens_android",
-            "godrays_android",
-            "lensflare_android",
-            "bloomlinear_android",
-            "hdr"
+            "wetworld_android_051_weather",
+            "godrays_android_051_depthfixed_vivid",
+            "lensflare_android_051_rayocc",
+            "gateh_bloom051",
+            "rainlens_android_051_v12_dense"
         )
     }
 }

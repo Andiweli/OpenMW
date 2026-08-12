@@ -10,6 +10,7 @@ ASAN="false"
 DEPLOY_RESOURCES="true"
 LTO="false"
 BUILD_TYPE="release"
+JOBS=""
 CFLAGS="-fPIC"
 CXXFLAGS="-fPIC -frtti -fexceptions"
 LDFLAGS="-fPIC -Wl,--undefined-version"
@@ -21,6 +22,7 @@ usage() {
 	echo "	--asan: build with AddressSanitizer enabled"
 	echo "	--no-resources: don't deploy the resources (used in full-build.sh)"
 	echo "	--lto: use LTO for linking"
+	echo "	--jobs N: limit parallel build jobs (default: all detected CPUs)"
 	echo "	--ccache: use ccache to speed up repeated builds"
 	echo "	--debug: produce a debug build without optimizations"
 	echo "	--release: produce a release build with optimizations (default)"
@@ -51,6 +53,10 @@ while [[ $# -gt 0 ]]; do
 		--ccache)
 			export CCACHE="true"
 			shift
+			;;
+		--jobs)
+			JOBS="$2"
+			shift 2
 			;;
 		--debug)
 			BUILD_TYPE="debug"
@@ -128,8 +134,16 @@ echo "==> Download and set up the NDK"
 ./include/setup-ndk.sh
 ./include/setup-icu.sh
 
-NCPU=$(grep -c ^processor /proc/cpuinfo)
-echo "==> Build using $NCPU CPUs"
+if [[ -n "$JOBS" ]]; then
+	if ! [[ "$JOBS" =~ ^[1-9][0-9]*$ ]]; then
+		echo "Invalid --jobs value: $JOBS" >&2
+		exit 1
+	fi
+	NCPU="$JOBS"
+else
+	NCPU=$(grep -c ^processor /proc/cpuinfo)
+fi
+echo "==> Build using $NCPU parallel job(s)"
 mkdir -p build/$ARCH/
 mkdir -p prefix/$ARCH/
 
@@ -201,14 +215,18 @@ if [[ $DEPLOY_RESOURCES = "true" ]]; then
 	mkdir -p "$DST/openmw/"
 	cp "$SRC/defaults.bin" "$DST/openmw/"
 	cp "$SRC/gamecontrollerdb.txt" "$DST/openmw/"
-	cat "$SRC/openmw.cfg" | grep -v "data=" | grep -v "data-local=" >> "$DST/openmw/openmw.base.cfg"
+	# OpenMW 0.51 adds an engine-owned data path for resources/vfs-mw.
+	# Do not strip every data= line as the old CaveBros pipeline did; remove
+	# only data-local and preserve the internal vfs-mw entry. MainActivity
+	# rewrites it to the writable Android resource mirror at runtime.
+	grep -v '^data-local=' "$SRC/openmw.cfg" >> "$DST/openmw/openmw.base.cfg"
 	cat "$DIR/../app/openmw.base.cfg" >> "$DST/openmw/openmw.base.cfg"
 
 	# Immutable engine marker consumed by app/build.gradle. Prevents accidentally
-	# packaging the old CaveBros 2024 development libopenmw.so after this upgrade.
+	# packaging a stale pre-0.51 libopenmw.so after this upgrade.
 	cat > "$DST/openmw/openmw-engine-version.txt" <<'EOF'
-OpenMW 0.50.0 Final
-commit=47d78e004bc182def2904986f8bb54aea1f4b3ae
+OpenMW 0.51.0 Final
+commit=f4bec41444214a7903bebd178389ca22ca13f646
 EOF
 
 	# licensing info

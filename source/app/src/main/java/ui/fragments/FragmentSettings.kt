@@ -29,6 +29,7 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.preference.EditTextPreference
+import android.preference.ListPreference
 import android.preference.Preference
 import android.preference.PreferenceFragment
 import android.preference.PreferenceGroup
@@ -60,6 +61,7 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
         addPreferencesFromResource(R.xml.settings)
         preferenceScreen.sharedPreferences.registerOnSharedPreferenceChangeListener(this)
 
+        prepareControllerTriggerPreference()
         updateGammaState()
 
         // Make launcher entries that open another screen visually distinct.
@@ -153,6 +155,36 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density + 0.5f).toInt()
+
+    private fun prepareControllerTriggerPreference() {
+        val key = "pref_omw051_controller_trigger_thresholds"
+        val preference = findPreference(key) as? ListPreference ?: return
+        val stored = preferenceScreen.sharedPreferences
+            .getString(key, "30720,26624")
+            ?: "30720,26624"
+
+        if (preference.findIndexOfValue(stored) >= 0) {
+            return
+        }
+
+        val values = stored.split(',', limit = 2)
+        val triggerPress = values.getOrNull(0)?.trim()?.toIntOrNull()
+        val triggerRelease = values.getOrNull(1)?.trim()?.toIntOrNull()
+        val customLabel = if (triggerPress != null && triggerRelease != null) {
+            "Custom ($triggerPress press, $triggerRelease release)"
+        } else {
+            "Custom"
+        }
+
+        preference.entries = preference.entries
+            .toMutableList()
+            .apply { add(customLabel) }
+            .toTypedArray()
+        preference.entryValues = preference.entryValues
+            .toMutableList()
+            .apply { add(stored) }
+            .toTypedArray()
+    }
 
     private fun showSteppedSliderPreference(
         key: String,

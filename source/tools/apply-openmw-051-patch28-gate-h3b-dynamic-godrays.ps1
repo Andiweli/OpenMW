@@ -1,0 +1,173 @@
+$ErrorActionPreference = 'Stop'
+
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$FinalCommit = 'f4bec41444214a7903bebd178389ca22ca13f646'
+
+function Read-Lf([string]$Path) {
+    return ([IO.File]::ReadAllText($Path) -replace "`r`n", "`n")
+}
+
+$MarkerFile = Join-Path $ProjectRoot 'app\src\main\assets\libopenmw\openmw\openmw-engine-version.txt'
+$JniLib = Join-Path $ProjectRoot 'app\src\main\jniLibs\arm64-v8a\libopenmw.so'
+$Patch26Sha = Join-Path $ProjectRoot 'buildscripts\openmw-051-patch26-libopenmw.sha256'
+$RuntimePatcher = Join-Path $ProjectRoot 'buildscripts\patches\openmw051-final\apply-android-runtime-baseline.py'
+$MainActivity = Join-Path $ProjectRoot 'app\src\main\java\ui\activity\MainActivity.kt'
+$BuildGradle = Join-Path $ProjectRoot 'app\build.gradle'
+$Godrays = Join-Path $ProjectRoot 'app\src\main\assets\android_omwfx\godrays_android_051_dynamic.omwfx'
+$Lensflare = Join-Path $ProjectRoot 'app\src\main\assets\android_omwfx\lensflare_android_051_rayocc.omwfx'
+$Bloom = Join-Path $ProjectRoot 'app\src\main\assets\android_omwfx\gateh_bloom051.omwfx'
+
+foreach ($Required in @(
+    $MarkerFile,
+    $JniLib,
+    $Patch26Sha,
+    $RuntimePatcher,
+    $MainActivity,
+    $BuildGradle,
+    $Godrays,
+    $Lensflare,
+    $Bloom
+)) {
+    if (-not (Test-Path -LiteralPath $Required)) {
+        throw "Patch 28 requires the completed Patch-27/Patch-26-v2 project. Missing: $Required"
+    }
+}
+
+if ((Read-Lf $MarkerFile).Trim() -ne "OpenMW 0.51.0 Final`ncommit=$FinalCommit") {
+    throw 'Patch 28 refused a non-0.51.0-Final runtime payload.'
+}
+
+$ExpectedNativeSha = ((Get-Content -LiteralPath $Patch26Sha -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+$ActualNativeSha = (Get-FileHash -Algorithm SHA256 -LiteralPath $JniLib).Hash.ToLowerInvariant()
+if ($ExpectedNativeSha -ne $ActualNativeSha) {
+    throw "Patch 28 requires the exact Patch-26 CPU-ray libopenmw.so. expected=$ExpectedNativeSha actual=$ActualNativeSha"
+}
+
+$PatcherText = Read-Lf $RuntimePatcher
+foreach ($Need in @(
+    'OPENMW_ANDROID_051_CPU_SUN_OCCLUSION',
+    'const RayResult hit = castRay(origin, dest, true, false);',
+    'sName = "sunOcclusion"',
+    'OpenMW 0.51 Android sun-occlusion ray:'
+)) {
+    if (-not $PatcherText.Contains($Need)) {
+        throw "Patch 28 CPU-ray base is incomplete: $Need"
+    }
+}
+
+$MainText = Read-Lf $MainActivity
+foreach ($Need in @(
+    'OpenMW 0.51 Patch 28 Gate H3b runtime',
+    '"godrays_android_051_dynamic,lensflare_android_051_rayocc,gateh_bloom051"',
+    'val godraysShader = "godrays_android_051_dynamic.omwfx"',
+    'val gateH3bBlockedShaders = listOf(',
+    'DYNAMIC-DEPTH-GODRAYS051+DIRECT-SUN-GLOW+LENSFLARE051+CPU-RAY-OCCLUSION+BLOOM',
+    'transparentPostpass=${if (omwfxGateH3bSelected) "forced-on" else "launcher"}',
+    '"transparent postpass" to if (omwfxGateH3bSelected) "true"'
+)) {
+    if (-not $MainText.Contains($Need)) {
+        throw "Patch 28 MainActivity is incomplete: $Need"
+    }
+}
+
+$BlockedStart = $MainText.IndexOf('val gateH3bBlockedShaders = listOf(')
+$BlockedEnd = $MainText.IndexOf("`n        )", $BlockedStart)
+if ($BlockedStart -lt 0 -or $BlockedEnd -lt 0) {
+    throw 'Patch 28 could not resolve the obsolete-shader block.'
+}
+$BlockedText = $MainText.Substring($BlockedStart, $BlockedEnd - $BlockedStart)
+if ($BlockedText.Contains('godrays_android_051_dynamic.omwfx') -or
+    $BlockedText.Contains('lensflare_android_051_rayocc.omwfx') -or
+    $BlockedText.Contains('gateh_bloom051.omwfx')) {
+    throw 'Patch 28 active OMWFX technique was accidentally added to the obsolete-shader block.'
+}
+foreach ($Obsolete in @(
+    '"godrays_android.omwfx"',
+    '"godrays_android_051.omwfx"',
+    '"godrays_android_051_rayocc.omwfx"',
+    '"lensflare_android_051_depthocc.omwfx"'
+)) {
+    if (-not $BlockedText.Contains($Obsolete)) {
+        throw "Patch 28 obsolete-shader block is missing: $Obsolete"
+    }
+}
+
+$GradleText = Read-Lf $BuildGradle
+foreach ($Need in @(
+    'OpenMW 0.51 Patch 28',
+    "file('src/main/assets/android_omwfx/godrays_android_051_dynamic.omwfx')",
+    'def gateH3bGodrays =',
+    "new File(project.rootDir, 'buildscripts/openmw-051-patch26-libopenmw.sha256')"
+)) {
+    if (-not $GradleText.Contains($Need)) {
+        throw "Patch 28 Gradle gate is incomplete: $Need"
+    }
+}
+
+$GodraysText = Read-Lf $Godrays
+foreach ($Need in @(
+    "uniform_float ray_strength {`n    default = 0.22;",
+    "uniform_float ray_length {`n    default = 0.85;",
+    "uniform_float sun_glow_strength {`n    default = 0.65;",
+    "uniform_float direct_glare_strength {`n    default = 0.48;",
+    'vec4 viewDir = omw.viewMatrix * vec4(discDir, 0.0);',
+    'float depth = omw_GetLinearDepth(clamp(uv, vec2(0.001), vec2(0.999)));',
+    'clamp(omw.sunOcclusion, 0.0, 1.0)',
+    'float shaftOcclusion = 0.28 + cpuVisibility * 0.72;',
+    'float directSun = 1.0 - smoothstep(0.035, 0.48, centerDistance);',
+    'for (int i = 0; i < 16; i += 1)',
+    'version = "3.1-051-dynamic";'
+)) {
+    if (-not $GodraysText.Contains($Need)) {
+        throw "Patch 28 dynamic Godrays/Sun-Glow shader is incomplete: $Need"
+    }
+}
+foreach ($Forbidden in @(
+    'omw_GetDepth(',
+    'Disable_SunGlare',
+    'softRayPattern051(',
+    'for (int i = 0; i < 8; i += 1)'
+)) {
+    if ($GodraysText.Contains($Forbidden)) {
+        throw "Patch 28 Godrays/Sun-Glow shader contains forbidden static/legacy token: $Forbidden"
+    }
+}
+
+$LensflareText = Read-Lf $Lensflare
+foreach ($Need in @(
+    'omw.sunVis * clamp(omw.sunOcclusion, 0.0, 1.0) * edgeFade051(sunUv)',
+    'version = "2.1-051-rayocc";'
+)) {
+    if (-not $LensflareText.Contains($Need)) {
+        throw "Patch 28 lost the device-proven Patch-26 Lensflare base: $Need"
+    }
+}
+
+$BloomText = Read-Lf $Bloom
+foreach ($Need in @(
+    'passes = nomipmap, horizontal, vertical, final;',
+    "uniform_float uThreshold {`n    default = 0.30;",
+    "uniform_float uSkyFactor {`n    default = 0.60;",
+    "uniform_float uStrength {`n    default = 0.35;"
+)) {
+    if (-not $BloomText.Contains($Need)) {
+        throw "Patch 28 lost the calibrated Patch-20 Bloom base: $Need"
+    }
+}
+
+foreach ($OldAsset in @(
+    'godrays_android.omwfx',
+    'godrays_android_051.omwfx',
+    'godrays_android_051_rayocc.omwfx'
+)) {
+    $OldPath = Join-Path $ProjectRoot ('app\src\main\assets\android_omwfx\' + $OldAsset)
+    if (Test-Path -LiteralPath $OldPath) {
+        Remove-Item -LiteralPath $OldPath -Force
+    }
+}
+
+Write-Host 'OpenMW 0.51 Patch 28 Gate H3b validation: PASS'
+Write-Host 'Native rebuild: NO'
+Write-Host 'Runtime chain: godrays_android_051_dynamic,lensflare_android_051_rayocc,gateh_bloom051'
+Write-Host 'Transparent postpass: forced ON for the OMWFX preset'
+Write-Host 'Expected ray logs remain: CLEAR / BLOCKED'

@@ -2,18 +2,13 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
 /*
- * Phase 2 v14 — OpenMW 0.50.0 Final
+ * OpenMW 0.51.0 Android final release baseline
  *
- * Gradle remains build-configuration only: it does NOT rewrite SDL/Java/XML
- * source files. v12 adds one generated-assets task for the optional OMWFX
- * post-processing preset.
- *
- * The OMWFX source is downloaded once from the same Cody Glassman fork used
- * by the CaveBros Android successor, cached below project/.gradle, and merged
- * into the APK under libopenmw/resources/vfs/shaders.
+ * Keeps the tested ARM64 runtime, Android launcher settings, shadows and
+ * calibrated OMWFX chain together behind one build-time verification gate.
  */
 
-def openMwVersionCode = 50
+def openMwVersionCode = 5100
 def versionFile = new File(
         project.rootDir,
         'app/src/main/assets/libopenmw/resources/version'
@@ -29,10 +24,10 @@ def calculateVersion = {
         }
     }
 
-    return "${engineVersion}-${openMwVersionCode}"
+    return engineVersion
 }
 
-// Phase 1 deliberately supports ARM64 only.
+// The final release deliberately supports ARM64 only.
 // The original native build creates one ABI at a time; advertising x86/ARM32
 // while only libopenmw.so for ARM64 exists would produce installable but broken APKs.
 def requiredOpenMwPayload = [
@@ -40,11 +35,26 @@ def requiredOpenMwPayload = [
         file('src/main/assets/libopenmw/resources/shaders/compatibility/fullscreen_tri.vert'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/shadowcasting.vert'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/shadows_fragment.glsl'),
+        file('src/main/assets/libopenmw/resources/shaders/compatibility/water.frag'),
+        file('src/main/assets/libopenmw/resources/shaders/compatibility/debug.vert'),
+        file('src/main/assets/libopenmw/resources/shaders/compatibility/debug.frag'),
+        file('src/main/assets/libopenmw/resources/vfs/shaders/adjustments.omwfx'),
+        file('src/main/assets/android_omwfx/gateh_bloom051.omwfx'),
+        file('src/main/assets/android_omwfx/godrays_android_051_depthfixed_vivid.omwfx'),
+        file('src/main/assets/android_omwfx/lensflare_android_051_rayocc.omwfx'),
+        file('src/main/assets/android_omwfx/rainlens_android_051_v12_dense.omwfx'),
+        file('src/main/assets/android_omwfx/wetworld_android_051_weather.omwfx'),
         file('src/main/assets/libopenmw/openmw/defaults.bin'),
         file('src/main/assets/libopenmw/openmw/openmw.base.cfg'),
         file('src/main/assets/libopenmw/openmw/openmw-engine-version.txt'),
         file('src/main/assets/libopenmw/openmw/gamecontrollerdb.txt'),
         file('src/main/assets/libopenmw/3rdparty-licenses.txt'),
+
+        file('src/main/java/ui/activity/MainActivity.kt'),
+        file('src/main/java/ui/fragments/FragmentSettings.kt'),
+        file('src/main/res/xml/settings.xml'),
+        file('src/main/res/xml/gs_engine.xml'),
+        file('src/main/res/values/strings.xml'),
 
         file('src/main/jniLibs/arm64-v8a/libopenmw.so'),
         file('src/main/jniLibs/arm64-v8a/libopenal.so'),
@@ -56,7 +66,7 @@ def requiredOpenMwPayload = [
 
 tasks.register('verifyOpenMwPayload') {
     group = 'verification'
-    description = 'Checks that the generated/extracted OpenMW ARM64 runtime payload exists.'
+    description = 'Checks the consolidated OpenMW 0.51.0 Android final release payload.'
 
     doLast {
         def missing = requiredOpenMwPayload.findAll { !it.exists() }
@@ -66,46 +76,299 @@ tasks.register('verifyOpenMwPayload') {
             }.join('\n - ')
 
             throw new GradleException(
-                    'OpenMW native runtime payload is missing.\n' +
-                    'Build the pinned native engine first with tools\\build-openmw-050-final.ps1.\n\n' +
+                    'OpenMW 0.51 runtime payload is missing.\n' +
+                    'Build it first with tools\\build-openmw-051-runtime.ps1.\n\n' +
                     'Missing files:\n - ' + relativeMissing
             )
         }
 
         def engineMarkerFile = file('src/main/assets/libopenmw/openmw/openmw-engine-version.txt')
         def engineMarker = engineMarkerFile.getText('UTF-8').replace('\r\n', '\n').trim()
-        def requiredFinalCommit = '47d78e004bc182def2904986f8bb54aea1f4b3ae'
-        def expectedEngineMarker = 'OpenMW 0.50.0 Final\ncommit=' + requiredFinalCommit
+        def requiredFinalCommit = 'f4bec41444214a7903bebd178389ca22ca13f646'
+        def expectedEngineMarker = 'OpenMW 0.51.0 Final\ncommit=' + requiredFinalCommit
 
         if (engineMarker != expectedEngineMarker) {
             def printableMarker = engineMarker.replace('\n', ' | ')
             throw new GradleException(
-                    'The native payload is not the pinned OpenMW 0.50.0 Final engine.\n' +
-                    'Run tools\\finalize-openmw-050-payload.ps1 before assembling the APK.\n' +
+                    'The native payload is not the pinned OpenMW 0.51.0 Final runtime gate.\n' +
+                    'Run tools\\build-openmw-051-runtime.ps1 before assembling the APK.\n' +
                     'Expected marker: ' + expectedEngineMarker.replace('\n', ' | ') + '\n' +
                     'Actual marker:   ' + printableMarker
             )
         }
 
+        // Keep the release-cleaned native build tied to its generated digest.
+        def finalNativeShaFile = new File(project.rootDir, 'buildscripts/openmw-051-patch39-libopenmw.sha256')
+        if (!finalNativeShaFile.isFile()) {
+            throw new GradleException(
+                    'OpenMW 0.51 Android requires the release-cleaned native library.\n' +
+                    'Run tools\\apply-openmw-051-patch39-release-log-cleanup.ps1 before assembling the APK.'
+            )
+        }
+
+        def expectedNativeSha = finalNativeShaFile.getText('UTF-8').trim().split(/\s+/)[0]
+        def finalNativeLib = file('src/main/jniLibs/arm64-v8a/libopenmw.so')
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        finalNativeLib.withInputStream { input ->
+            byte[] buffer = new byte[64 * 1024]
+            int count
+            while ((count = input.read(buffer)) > 0) {
+                digest.update(buffer, 0, count)
+            }
+        }
+        def actualNativeSha = digest.digest().collect { String.format('%02x', it & 0xff) }.join()
+        if (!expectedNativeSha.equalsIgnoreCase(actualNativeSha)) {
+            throw new GradleException(
+                    'OpenMW 0.51 Android release native payload is stale.\n' +
+                    'Run tools\\apply-openmw-051-patch39-release-log-cleanup.ps1 again.\n' +
+                    'Expected SHA-256: ' + expectedNativeSha + '\n' +
+                    'Actual SHA-256:   ' + actualNativeSha
+            )
+        }
+
+        def resourceVersion = file('src/main/assets/libopenmw/resources/version')
+                .getText('UTF-8').trim()
+        if (!resourceVersion.startsWith('0.51.0')) {
+            throw new GradleException(
+                    'OpenMW resources are not from 0.51.0 Final. Actual resources/version: ' +
+                    resourceVersion
+            )
+        }
+
+        if (openMwVersionCode != 5100 || calculateVersion() != '0.51.0') {
+            throw new GradleException(
+                    'OpenMW Android final release identity must be versionName 0.51.0 and versionCode 5100.'
+            )
+        }
+
+        def launcherMainActivity = file('src/main/java/ui/activity/MainActivity.kt').getText('UTF-8')
+        if (!launcherMainActivity.contains('migrateOpenMw051SettingsPreferences()') ||
+                !launcherMainActivity.contains('private fun controllerTriggerThresholds(): Pair<Int, Int>') ||
+                !launcherMainActivity.contains('private fun applyOpenMw051LauncherSettings()') ||
+                !launcherMainActivity.contains('private fun applyOpenMw051RuntimeSettings()') ||
+                !launcherMainActivity.contains('OMWFX_RECOMMENDED_CHAIN.joinToString(",")') ||
+                !launcherMainActivity.contains('"controller trigger press" to triggerPress.toString()') ||
+                !launcherMainActivity.contains('"controller trigger release" to triggerRelease.toString()') ||
+                !launcherMainActivity.contains('"point lighting" to if (groundcoverPointLighting) "true" else "false"') ||
+                !launcherMainActivity.contains('"pref_omw051_controller_trigger_thresholds"') ||
+                !launcherMainActivity.contains('"gs_groundcover_point_lighting"') ||
+                !launcherMainActivity.contains('text = "ARM64 \\u2022 v${BuildConfig.VERSION_NAME}"') ||
+                !launcherMainActivity.contains('OpenMW 0.51 Android release runtime:') ||
+                launcherMainActivity.contains('Gate H5a') ||
+                launcherMainActivity.indexOf('text = "ARM64 \\u2022 v${BuildConfig.VERSION_NAME}"') >
+                    launcherMainActivity.indexOf('"This port by Andreas \\"Andiweli\\" Stürmer\\n"')) {
+            throw new GradleException(
+                    'OpenMW 0.51 Android launcher, OMWFX consolidation or About information is incomplete.'
+            )
+        }
+
+        def launcherFragmentSettings = file('src/main/java/ui/fragments/FragmentSettings.kt').getText('UTF-8')
+        if (!launcherFragmentSettings.contains('prepareControllerTriggerPreference()') ||
+                !launcherFragmentSettings.contains('Custom ($triggerPress press, $triggerRelease release)') ||
+                !launcherFragmentSettings.contains('sharedPref.getString("pref_shadersDir_v2", "") == "modified"')) {
+            throw new GradleException(
+                    'OpenMW 0.51 controller-trigger or shader-precision handling is missing.'
+            )
+        }
+
+        def launcherSettingsXml = file('src/main/res/xml/settings.xml').getText('UTF-8')
+        def controllerTooltipsIndex = launcherSettingsXml.indexOf('android:key="pref_omw050_controller_tooltips"')
+        def controllerTriggerIndex = launcherSettingsXml.indexOf('android:key="pref_omw051_controller_trigger_thresholds"')
+        def onScreenControlsIndex = launcherSettingsXml.indexOf('android:key="pref_controls"')
+        def hideOnScreenButtonsIndex = launcherSettingsXml.indexOf('android:key="pref_hide_controls"')
+        if (!launcherSettingsXml.contains('android:dependency="pref_omw050_controller_menus"') ||
+                !launcherSettingsXml.contains('Use OpenMW 0.51 gamepad-optimized menu navigation') ||
+                !launcherSettingsXml.contains('android:summary="@string/pref_nohighp_summary"') ||
+                controllerTooltipsIndex < 0 ||
+                controllerTriggerIndex <= controllerTooltipsIndex ||
+                onScreenControlsIndex <= controllerTriggerIndex ||
+                hideOnScreenButtonsIndex <= onScreenControlsIndex) {
+            throw new GradleException(
+                    'OpenMW 0.51 launcher order or precision explanation is missing from settings.xml.'
+            )
+        }
+
+        def launcherEngineXml = file('src/main/res/xml/gs_engine.xml').getText('UTF-8')
+        if (!launcherEngineXml.contains('android:key="gs_groundcover_point_lighting"') ||
+                !launcherEngineXml.contains('android:defaultValue="true"')) {
+            throw new GradleException(
+                    'OpenMW 0.51 Groundcover point-lighting control is missing.'
+            )
+        }
+
+        def launcherStrings = file('src/main/res/values/strings.xml').getText('UTF-8')
+        ['30720,26624', '24576,20480', '16384,12288'].each { thresholdPreset ->
+            if (!launcherStrings.contains('<item>' + thresholdPreset + '</item>')) {
+                throw new GradleException(
+                        'OpenMW 0.51 controller-trigger preset is missing: ' + thresholdPreset
+                )
+            }
+        }
+        if (!launcherStrings.contains('<string name="pref_nohighp_summary">Uses medium instead of high precision; available only with the Modified shader preset</string>')) {
+            throw new GradleException(
+                    'OpenMW 0.51 Medium shader precision explanation is missing.'
+            )
+        }
+
+        def finalBloom = file('src/main/assets/android_omwfx/gateh_bloom051.omwfx')
+                .getText('UTF-8')
+        if (!finalBloom.contains('passes = nomipmap, horizontal, vertical, final;') ||
+                !finalBloom.contains('internal_format = rgb16f;') ||
+                !finalBloom.contains('source_type = half_float;') ||
+                !finalBloom.contains('uniform_float uThreshold {\n    default = 0.30;') ||
+                !finalBloom.contains('uniform_float uSkyFactor {\n    default = 0.60;') ||
+                !finalBloom.contains('uniform_float uRadius {\n    default = 0.55;') ||
+                !finalBloom.contains('uniform_float uStrength {\n    default = 0.35;')) {
+            throw new GradleException(
+                'OpenMW 0.51 Android requires the calibrated four-pass Bloom shader.'
+            )
+        }
+
+        def finalLensflare = file('src/main/assets/android_omwfx/lensflare_android_051_rayocc.omwfx')
+                .getText('UTF-8')
+        if (!finalLensflare.contains('vec4 viewDir = omw.viewMatrix * vec4(discDir, 0.0);') ||
+                !finalLensflare.contains('omw.sunVis * clamp(omw.sunOcclusion, 0.0, 1.0) * edgeFade051(sunUv)') ||
+                finalLensflare.contains('sunOcclusion(') ||
+                finalLensflare.contains('sunOcclusion051(') ||
+                finalLensflare.contains('omw_GetLinearDepth(') ||
+                finalLensflare.contains('omw_GetDepth(') ||
+                finalLensflare.contains('Disable_SunGlare') ||
+                !finalLensflare.contains('version = "2.1-051-rayocc";')) {
+            throw new GradleException(
+                'OpenMW 0.51 Android requires the CPU-ray-occluded Lensflare shader.'
+            )
+        }
+
+        def finalGodrays = file('src/main/assets/android_omwfx/godrays_android_051_depthfixed_vivid.omwfx')
+                .getText('UTF-8')
+        if (!finalGodrays.contains('uniform_float ray_strength {\n    default = 0.60;') ||
+                !finalGodrays.contains('uniform_float ray_length {\n    default = 0.85;') ||
+                !finalGodrays.contains('uniform_float sun_glow_strength {\n    default = 0.65;') ||
+                !finalGodrays.contains('uniform_float direct_glare_strength {\n    default = 0.48;') ||
+                !finalGodrays.contains('vec4 viewDir = omw.viewMatrix * vec4(discDir, 0.0);') ||
+                !finalGodrays.contains('clamp(omw.sunOcclusion, 0.0, 1.0)') ||
+                !finalGodrays.contains('float depth = omw_GetDepth(clamp(uv, vec2(0.001), vec2(0.999)));') ||
+                !finalGodrays.contains('return smoothstep(0.99970, 0.99999, depth);') ||
+                !finalGodrays.contains('float shaftContrast = smoothstep(0.08, 0.92, shafts);') ||
+                !finalGodrays.contains('shafts = mix(shafts, shaftContrast, 0.35);') ||
+                !finalGodrays.contains('light += warmColor * shaftIntensity * 0.78;') ||
+                !finalGodrays.contains('light += sunColor * directSun * direct_glare_strength * 0.60 * glowVisibility;') ||
+                finalGodrays.contains('direct_glare_strength * 0.80 * glowVisibility;') ||
+                !finalGodrays.contains('float directSun = 1.0 - smoothstep(0.035, 0.48, centerDistance);') ||
+                !finalGodrays.contains('for (int i = 0; i < 16; i += 1)') ||
+                finalGodrays.contains('omw_GetLinearDepth(') ||
+                finalGodrays.contains('Disable_SunGlare') ||
+                !finalGodrays.contains('version = "3.4-051-depthfixed-vivid-softglare";')) {
+            throw new GradleException(
+                    'OpenMW 0.51 Android requires the dynamic 16-tap Tex_Depth Godrays with 75-percent Direct Sun Glare.'
+            )
+        }
+
+        def finalRainLens = file('src/main/assets/android_omwfx/rainlens_android_051_v12_dense.omwfx')
+                .getText('UTF-8')
+        if (!finalRainLens.contains('uniform_float rainlens_strength_v34 {\n    default = 0.72;') ||
+                !finalRainLens.contains('uniform_float rainlens_refraction_v34 {\n    default = 0.92;') ||
+                !finalRainLens.contains('uniform_float rainlens_density_v34 {\n    default = 0.90;') ||
+                !finalRainLens.contains('float hash21051(vec2 p)') ||
+                !finalRainLens.contains('vec4 movingDrop051(') ||
+                !finalRainLens.contains('p.y += timeValue * speed;') ||
+                !finalRainLens.contains('float timeValue = omw.simulationTime;') ||
+                !finalRainLens.contains('float currentRain = rainForWeather051(omw.weatherID);') ||
+                !finalRainLens.contains('float nextRain = rainForWeather051(omw.nextWeatherID);') ||
+                !finalRainLens.contains('clamp(omw.weatherTransition, 0.0, 1.0)') ||
+                !finalRainLens.contains('vec4 drop = movingDrop051(') ||
+                !finalRainLens.contains('omw_TexCoord, 5.6, 0.215, 19.7, timeValue, wind, density') ||
+                !finalRainLens.contains('float threshold = mix(0.94, 0.72, clamp(density, 0.0, 1.0));') ||
+                !finalRainLens.contains('float refractionMix = clamp(mask * 0.82, 0.0, 0.82);') ||
+                !finalRainLens.contains('result += vec3(0.028) * drop.w * rain;') ||
+                !finalRainLens.contains('flags = Disable_Interiors, Disable_Underwater;') ||
+                !finalRainLens.contains('version = "4.3-051-rainlens-v12-dense";') ||
+                finalRainLens.contains('omw.simulationTime * 0.001') ||
+                finalRainLens.contains('rainHash3051(') ||
+                finalRainLens.contains('teardropLayer051(') ||
+                finalRainLens.contains('omw_GetDepth(') ||
+                finalRainLens.contains('omw_GetLinearDepth(')) {
+            throw new GradleException(
+                    'OpenMW 0.51 Android requires RainLens v1.2 geometry with the doubled drop population.'
+            )
+        }
+
+        def finalWetWorld = file('src/main/assets/android_omwfx/wetworld_android_051_weather.omwfx')
+                .getText('UTF-8')
+        if (!finalWetWorld.contains('uniform_float wet_strength_v35 {\n    default = 0.92;') ||
+                !finalWetWorld.contains('uniform_float wet_darkening_v35 {\n    default = 0.30;') ||
+                !finalWetWorld.contains('uniform_float wet_sheen_v35 {\n    default = 0.34;') ||
+                !finalWetWorld.contains('uniform_float puddle_strength_v35 {\n    default = 0.62;') ||
+                !finalWetWorld.contains('float rainFactor051()') ||
+                !finalWetWorld.contains('float valueNoise051(vec2 p)') ||
+                !finalWetWorld.contains('vec3 reconstructedWorldNormal051(vec2 uv)') ||
+                !finalWetWorld.contains('float upFacing = smoothstep(0.30, 0.76, abs(n.z));') ||
+                !finalWetWorld.contains('float puddleMask = smoothstep(0.56, 0.76, puddleField)') ||
+                !finalWetWorld.contains('if (base.a < 0.25)') ||
+                !finalWetWorld.contains('flags = Disable_Interiors, Disable_Underwater;') ||
+                !finalWetWorld.contains('version = "5.0-051-weather-puddles";') ||
+                finalWetWorld.contains('dFdx(') ||
+                finalWetWorld.contains('dFdy(') ||
+                finalWetWorld.contains('sin(')) {
+            throw new GradleException(
+                    'OpenMW 0.51 Android requires the GLES2-safe weather WetWorld/puddle shader.'
+            )
+        }
+
+        def finalWaterShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/water.frag')
+                .getText('UTF-8')
+        if (!finalWaterShader.contains('OPENMW_ANDROID_051_WETWORLD_WATER_MASK') ||
+                !finalWaterShader.contains('#if @wetWorldWaterMask') ||
+                !finalWaterShader.contains('gl_FragData[0].a = 0.0;') ||
+                !finalWaterShader.contains('rainCombined(position.xy/1000.0, waterTimer)')) {
+            throw new GradleException(
+                    'OpenMW 0.51 Android requires exact WetWorld water exclusion while retaining native rain ripples.'
+            )
+        }
+
+        def runtimePatcher = new File(project.rootDir, 'buildscripts/patches/openmw051-final/apply-android-runtime-baseline.py')
+        def runtimePatcherText = runtimePatcher.isFile() ? runtimePatcher.getText('UTF-8') : ''
+        if (!runtimePatcherText.contains('OPENMW_ANDROID_051_CPU_SUN_OCCLUSION') ||
+                !runtimePatcherText.contains('OPENMW_ANDROID_051_POSTPROCESSING_SCENE_DEPTH') ||
+                !runtimePatcherText.contains('setTextureDepth(getTexture(Tex_Depth, frameId))') ||
+                !runtimePatcherText.contains('OPENMW_ANDROID_051_WETWORLD_WATER_MASK') ||
+                !runtimePatcherText.contains('defineMap["wetWorldWaterMask"] = "1";') ||
+                !runtimePatcherText.contains("release_log_marker = 'OpenMW 0.51 Android renderer:'") ||
+                !runtimePatcherText.contains('CPU sun-occlusion diagnostic logging was not removed') ||
+                !runtimePatcherText.contains('repetitive shadow diagnostic was not removed')) {
+            throw new GradleException('OpenMW 0.51 Android requires the permanent renderer patches and final release-log cleanup.')
+        }
+
+        // The final release intentionally carries only the small GLSL syntax corrections
+        // that are independently safe on the 0.51 shader architecture.
         def fullscreenShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/fullscreen_tri.vert').getText('UTF-8')
         def shadowShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/shadowcasting.vert').getText('UTF-8')
+        def debugVert = file('src/main/assets/libopenmw/resources/shaders/compatibility/debug.vert').getText('UTF-8')
+        def debugFrag = file('src/main/assets/libopenmw/resources/shaders/compatibility/debug.frag').getText('UTF-8')
         def shadowFragmentShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/shadows_fragment.glsl').getText('UTF-8')
 
         if (fullscreenShader.contains('uniform vec2 scaling =') ||
                 shadowShader.contains('uniform bool useDiffuseMapForShadowAlpha =') ||
-                shadowShader.contains('uniform bool alphaTestShadows =')) {
+                shadowShader.contains('uniform bool alphaTestShadows =') ||
+                debugVert.contains('uniform bool useAdvancedShader =') ||
+                debugFrag.contains('uniform bool useAdvancedShader =')) {
             throw new GradleException(
-                    'OpenMW 0.50 Final was built without the Android/GL4ES shader patch.\n' +
-                    'Re-run tools\\prepare-openmw-050-final.ps1 and rebuild the native engine.'
+                    'OpenMW 0.51 runtime gate is missing the minimal Android/GL4ES uniform-initializer patch.\n' +
+                    'Re-run tools\\build-openmw-051-runtime.ps1.'
             )
         }
 
-        if (!shadowFragmentShader.contains('OPENMW_ANDROID_GLES2_MANUAL_SHADOW_COMPARE') ||
+        // Keep the proven Android GLES2 shadow compatibility baseline active.
+        if (!shadowFragmentShader.contains('OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE') ||
                 shadowFragmentShader.contains('uniform sampler2DShadow') ||
-                shadowFragmentShader.contains('shadow2DProj(')) {
+                shadowFragmentShader.contains('shadow2DProj(') ||
+                !shadowFragmentShader.contains('uniform sampler2D shadowTexture@shadow_texture_unit_index;') ||
+                !shadowFragmentShader.contains('step(shadowXYZ.z, texture2D(') ||
+                !shadowShader.contains('OPENMW_ANDROID_051_GLES2_NATIVE_SHADOW_CLIPPING') ||
+                shadowShader.contains('gl_Position.z = clamp(gl_Position.z, -gl_Position.w, gl_Position.w);')) {
             throw new GradleException(
-                    'OpenMW 0.50 Final contains a stale GLES2 shadow receiver shader.\n' +
-                    'Re-run tools\\build-openmw-050-final.ps1 before assembling the APK.'
+                    'OpenMW 0.51 Android GLES2 shadow payload is incomplete.\n' +
+                    'Re-run tools\\apply-openmw-051-patch12-shadows.ps1 before assembling the APK.'
             )
         }
     }
@@ -290,9 +553,9 @@ android {
                 srcDir "wrap/res"
             }
 
-            // Generated by prepareOmwfxShaders. This overlays only additional
-            // VFS shader assets; it never modifies app/src/main/assets.
-            assets.srcDir omwfxGeneratedAssetsDir
+            // Do not merge the generated upstream OMWFX VFS overlay.
+            // MainActivity exposes only the calibrated
+            // WetWorld, Godrays, Lensflare, Bloom and RainLens assets at runtime.
         }
     }
 
@@ -305,9 +568,8 @@ android {
 
         minSdk 21
 
-        // Keep this at 29 for the proof-of-life / legacy game-file access build.
-        // Scoped-storage modernization is a separate step once ChromeOS and Android
-        // behaviour are confirmed with the new app-specific user-data directory.
+        // Keep this at 29 for the final legacy game-file-access release.
+        // Scoped-storage modernization remains a separate post-0.51 step.
         targetSdk 29
 
         ndk {
@@ -363,7 +625,6 @@ android {
 
 tasks.named('preBuild').configure {
     dependsOn tasks.named('verifyOpenMwPayload')
-    dependsOn tasks.named('prepareOmwfxShaders')
 }
 
 dependencies {

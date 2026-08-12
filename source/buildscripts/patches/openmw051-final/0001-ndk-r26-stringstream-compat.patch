@@ -1,0 +1,13 @@
+diff --git a/components/misc/resourcehelpers.cpp b/components/misc/resourcehelpers.cpp
+--- a/components/misc/resourcehelpers.cpp
++++ b/components/misc/resourcehelpers.cpp
+@@ -312,7 +312,8 @@ VFS::Path::Normalized Misc::ResourceHelpers::getLODMeshName(
+     {
+         std::stringstream patern;
+         patern << distantMeshPattern << "_" << l;
+-        const VFS::Path::Normalized meshName = getBestLODMeshName(resPath, vfs, patern.view());
++        const std::string paternString = patern.str();
++        const VFS::Path::Normalized meshName = getBestLODMeshName(resPath, vfs, paternString);
+         if (meshName != resPath)
+             return meshName;
+     }

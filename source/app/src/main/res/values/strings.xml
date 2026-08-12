@@ -63,6 +63,19 @@
         <item>1</item>
         <item>2</item>
     </string-array>
+
+    <string-array name="pref_omw051_controller_trigger_sensitivity_entries">
+        <item>OpenMW default (15/16 press, 13/16 release)</item>
+        <item>Balanced (12/16 press, 10/16 release)</item>
+        <item>Sensitive (8/16 press, 6/16 release)</item>
+    </string-array>
+
+    <string-array name="pref_omw051_controller_trigger_sensitivity_values">
+        <item>30720,26624</item>
+        <item>24576,20480</item>
+        <item>16384,12288</item>
+    </string-array>
+
     <string name="general_settings">Setup</string>
     <string name="start_game_label">Start game</string>
     <string name="closeDrawer">Navigation View</string>
@@ -76,6 +89,7 @@
     <string name="pref_commandLine">Custom Commandline Arguments</string>
     <string name="pref_envLine">Custom Environment Flags</string>
     <string name="pref_nohighp">Medium shader precision</string>
+    <string name="pref_nohighp_summary">Uses medium instead of high precision; available only with the Modified shader preset</string>
     <string name="pref_ui">User Interface</string>
     <string name="pref_textureShrinking">Texture Shrinking</string>
     <string name="pref_textureShrinking_default">none</string>

@@ -12,6 +12,12 @@
             android:defaultValue="0" />
 
         <CheckBoxPreference
+            android:key="gs_groundcover_point_lighting"
+            android:title="Point Lighting on Groundcover"
+            android:summary="OpenMW 0.51: allow nearby lamps and other point lights to illuminate grass. Disable to save some GPU performance."
+            android:defaultValue="true" />
+
+        <CheckBoxPreference
             android:key="gs_build_navmesh"
             android:title="Build Navmesh for World Geometry"
             android:defaultValue="true"
