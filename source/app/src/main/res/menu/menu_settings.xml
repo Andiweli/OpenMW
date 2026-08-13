@@ -36,6 +36,9 @@
                 <item
                     android:id="@+id/action_theme_dark"
                     android:title="@string/action_theme_dark" />
+                <item
+                    android:id="@+id/action_theme_oled"
+                    android:title="@string/action_theme_oled" />
             </menu>
         </item>
 

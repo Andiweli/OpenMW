@@ -27,6 +27,7 @@ import android.widget.Button
 import android.widget.RelativeLayout
 import android.util.DisplayMetrics
 import org.libsdl.app.SDLActivity
+import com.libopenmw.openmw.R
 
 
 class OskTouchListener(val btn: OskButton): View.OnTouchListener {
@@ -56,7 +57,8 @@ abstract class OskButton(
     private val positionX: Int,
     private val positionY: Int,
     private val sizeW: Int,
-    private val sizeH: Int
+    private val sizeH: Int,
+    private val textRes: Int? = null
 ) {
 
     var view: Button? = null
@@ -82,7 +84,7 @@ abstract class OskButton(
     fun place(target: RelativeLayout) {
         val v = Button(target.context)
         v.transformationMethod = null
-        v.text = text
+        v.text = textRes?.let { v.context.getString(it) } ?: text
         v.tag = this
         v.alpha = 0.5f
         v.visibility = View.GONE
@@ -172,7 +174,7 @@ class OskRawButton(text: String, private val keyCode: Int, positionX: Int, posit
 }
 
 class OskShift(val buttons: ArrayList<OskSimpleButton>, positionX: Int, positionY: Int, sizeW: Int, sizeH: Int):
-    OskButton("Shift", positionX, positionY, sizeW, sizeH) {
+    OskButton("", positionX, positionY, sizeW, sizeH, R.string.osk_shift) {
 
     override fun pressed() {
         for (btn in buttons)
@@ -185,7 +187,7 @@ class OskShift(val buttons: ArrayList<OskSimpleButton>, positionX: Int, position
     }
 }
 class OskCaps(val buttons: ArrayList<OskSimpleButton>, positionX: Int, positionY: Int, sizeW: Int, sizeH: Int):
-        OskButton("Caps Lock", positionX, positionY, sizeW, sizeH) {
+        OskButton("", positionX, positionY, sizeW, sizeH, R.string.osk_caps_lock) {
 
     private var state = false
 
@@ -198,7 +200,7 @@ class OskCaps(val buttons: ArrayList<OskSimpleButton>, positionX: Int, positionY
 }
 
 class OskLanguage(val reference: Osk, positionX: Int, positionY: Int, sizeW: Int, sizeH: Int):
-        OskButton("Lang", positionX, positionY, sizeW, sizeH) {
+        OskButton("", positionX, positionY, sizeW, sizeH, R.string.osk_language) {
 
     override fun pressed() {
         reference.changeLanguage()

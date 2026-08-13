@@ -1,49 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <PreferenceCategory android:title="Animations">
-
-        <CheckBoxPreference
-            android:key="gs_use_magic_item_animation"
-            android:title="Use Magic Item Animation"
-            android:summary="Use casting animations for magic items, just as for spells."/>
-
-        <CheckBoxPreference
-            android:key="gs_use_additional_animation_sources"
-            android:title="Use Additional Animation Sources"
-            android:summary="Load per-group KF-files and skeleton files from Animations folder."/>
-
-        <CheckBoxPreference
-            android:key="gs_weapon_sheating"
-            android:title="Weapon Sheating"
-            android:summary="Render holstered weapons (with quivers and scabbards), requires modded assets."/>
-
-        <CheckBoxPreference
-            android:key="gs_shield_sheating"
-            android:title="Shield Sheating"
-            android:summary="Render holstered shield, requires modded assets."/>
-
-        <CheckBoxPreference
-            android:key="gs_enable_graphics_herbalism"
-            android:title="Enable Graphics Herbalism"
-            android:defaultValue="true"
-            android:summary="If this setting is true, containers supporting graphic herbalism will do so instead of opening the menu."/>
-
-        <CheckBoxPreference
-            android:key="gs_smooth_movement"
-            android:title="Smooth Movement"
-            android:summary="Makes NPCs and player movement more smooth. Recommended to use with turn to movement direction enabled."/>
-
-        <CheckBoxPreference
-            android:key="gs_smooth_animation_transitions"
-            android:title="Smooth Animation Transitions"
-            android:defaultValue="false"
-            android:summary="Smoothly blends compatible animation transitions. New in OpenMW 0.49; disabled by default."/>
-
-        <CheckBoxPreference
-            android:key="gs_turn_to_movement_direction"
-            android:title="Turn to Movement Direction"
-            android:summary="Affects side and diagonal movement. Enabling this setting makes movement more realistic. If disabled then the whole character's body is pointed to the direction of view. Diagonal movement has no special animation and causes sliding. If enabled then the character turns lower body to the direction of movement. Upper body is turned partially. Head is always pointed to the direction of view. In combat mode it works only for diagonal movement. In non-combat mode it changes straight right and straight left movement as well. Also turns the whole body up or down when swimming according to the movement direction."/>
-
+    <PreferenceCategory android:title="@string/l10n_gs_animations_animations_title">
+        <CheckBoxPreference android:key="gs_use_magic_item_animation" android:title="@string/gs_use_magic_item_animation_title" android:summary="@string/gs_use_magic_item_animation_summary" />
+        <CheckBoxPreference android:key="gs_use_additional_animation_sources" android:title="@string/gs_use_additional_animation_sources_title" android:summary="@string/gs_use_additional_animation_sources_summary" />
+        <CheckBoxPreference android:key="gs_weapon_sheating" android:title="@string/gs_weapon_sheating_title" android:summary="@string/gs_weapon_sheating_summary" />
+        <CheckBoxPreference android:key="gs_shield_sheating" android:title="@string/gs_shield_sheating_title" android:summary="@string/gs_shield_sheating_summary" />
+        <CheckBoxPreference android:key="gs_enable_graphics_herbalism" android:title="@string/gs_enable_graphics_herbalism_title" android:defaultValue="true" android:summary="@string/gs_enable_graphics_herbalism_summary" />
+        <CheckBoxPreference android:key="gs_smooth_movement" android:title="@string/gs_smooth_movement_title" android:summary="@string/gs_smooth_movement_summary" />
+        <CheckBoxPreference android:key="gs_smooth_animation_transitions" android:title="@string/gs_smooth_animation_transitions_title" android:defaultValue="false" android:summary="@string/gs_smooth_animation_transitions_summary" />
+        <CheckBoxPreference android:key="gs_turn_to_movement_direction" android:title="@string/gs_turn_to_movement_direction_title" android:summary="@string/gs_turn_to_movement_direction_summary" />
     </PreferenceCategory>
 </PreferenceScreen>

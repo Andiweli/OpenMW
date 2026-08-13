@@ -36,7 +36,7 @@ class ModsCollection(
 
     private val extensions: Array<String> = when (type) {
         ModType.Resource -> arrayOf("bsa")
-        ModType.Dir -> arrayOf("")
+        ModType.Dir -> emptyArray()
         else -> arrayOf("esm", "esp", "omwaddon", "omwgame", "omwscripts")
     }
 
@@ -118,13 +118,18 @@ class ModsCollection(
 
         dataFiles.forEach { dataPath ->
             val modFiles = File(dataPath).listFiles()?.filter {
-                extensions.contains(it.extension.lowercase(Locale.ROOT))
+                when (type) {
+                    ModType.Dir -> it.isDirectory
+                    else -> it.isFile && extensions.contains(it.extension.lowercase(Locale.ROOT))
+                }
             }
 
             // Blacklist "Data Files" in Directories tab and default plugins in Groundcovers tab.
             val blacklist = mutableSetOf<String>()
             if (type == ModType.Dir) {
-                blacklist.add("Data Files")
+                File(dataPath).listFiles()
+                    ?.firstOrNull { it.name.equals("Data Files", ignoreCase = true) }
+                    ?.let { blacklist.add(it.name) }
             }
             if (type == ModType.Groundcover) {
                 blacklist.add("Morrowind.esm")

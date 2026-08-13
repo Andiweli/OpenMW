@@ -19,19 +19,21 @@
 
 package ui.activity
 
-import com.libopenmw.openmw.R
-
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import com.google.android.material.tabs.TabLayout
-import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearLayoutManager
-import file.GameInstaller
-import mods.*
 import android.view.MenuItem
 import android.widget.ViewFlipper
-import java.io.File
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.tabs.TabLayout
+import com.libopenmw.openmw.R
+import mods.ModMoveCallback
+import mods.ModType
+import mods.ModsAdapter
+import mods.ModsCollection
+import mods.ModsPaths
+import mods.database
 
 class ModsActivity : AppCompatActivity() {
 
@@ -45,35 +47,29 @@ class ModsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_mods)
 
         setSupportActionBar(findViewById(R.id.mods_toolbar))
-
-        // Enable the "back" icon in the action bar
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
         val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
         val flipper = findViewById<ViewFlipper>(R.id.flipper)
 
-        // Switch tabs between plugins/resources
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
-
-                // Reload mod list when moving from data dir tab
-                if(flipper.displayedChild == 2) {
+                // Persist directory changes before rebuilding the other tabs.
+                if (flipper.displayedChild == 2) {
+                    mDirAdapter.collection.update()
                     updateModList()
                     mPluginAdapter.notifyDataSetChanged()
                     mResourceAdapter.notifyDataSetChanged()
                     mGroundcoverAdapter.notifyDataSetChanged()
                 }
-		
+
                 flipper.displayedChild = tab.position
             }
 
-            override fun onTabUnselected(tab: TabLayout.Tab) {
-            }
-
-            override fun onTabReselected(tab: TabLayout.Tab) {
-            }
+            override fun onTabUnselected(tab: TabLayout.Tab) = Unit
+            override fun onTabReselected(tab: TabLayout.Tab) = Unit
         })
 
-        // Set up adapters for the lists
         setupModList(findViewById(R.id.list_mods), ModType.Plugin)
         setupModList(findViewById(R.id.list_resources), ModType.Resource)
         setupModList(findViewById(R.id.list_dirs), ModType.Dir)
@@ -83,105 +79,55 @@ class ModsActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        // Persist each list before the Activity goes away. updateModList() must
+        // not replace collections before dirty entries have been written.
+        mPluginAdapter.collection.update()
+        mResourceAdapter.collection.update()
+        mDirAdapter.collection.update()
+        mGroundcoverAdapter.collection.update()
         super.onDestroy()
-        updateModList()
     }
 
+    /** Rebuilds mod lists from the base Data Files directory plus enabled data dirs. */
     private fun updateModList() {
-
-	var dataFilesList = ArrayList<String>()
-	dataFilesList.add(GameInstaller.getDataFiles(this))
-
-	// Get list of enabled data directories
-	var dataDirs = ArrayList<String>()
-	var enabledDataDirs = ArrayList<String>()
-	enabledDataDirs.add(GameInstaller.getDataFiles(this))
-	dataDirs.add(GameInstaller.getDataFiles(this).dropLast(10))
-	val availableDirs = ModsCollection(ModType.Dir, dataDirs, database)
-
-	availableDirs.mods
-	    .filter { it.enabled }
-            .forEach { enabledDataDirs.add(it.filename) }
-
-	File(GameInstaller.getDataFiles(this).dropLast(10)).listFiles().forEach {
-	    if (!it.isFile() && enabledDataDirs.contains(it.getName()) )
-	        dataFilesList.add(GameInstaller.getDataFiles(this).dropLast(10) + it.getName())
-	}
-
+        val dataFilesList = ModsPaths.allDataDirectories(this)
         mPluginAdapter.collection = ModsCollection(ModType.Plugin, dataFilesList, database)
         mResourceAdapter.collection = ModsCollection(ModType.Resource, dataFilesList, database)
         mGroundcoverAdapter.collection = ModsCollection(ModType.Groundcover, dataFilesList, database)
     }
 
-    /**
-     * Connects a user-interface RecyclerView to underlying mod data on the disk
-     * @param list The list displayed to the user
-     * @param type Type of the mods this list will contain
-     */
+    /** Connects a RecyclerView to the corresponding mod collection. */
     private fun setupModList(list: RecyclerView, type: ModType) {
-
-        // This is here just to auto-enable basic plugins (morrowind.esp...) it somehow dont work in updateModList :( 
-	var dataFilesList = ArrayList<String>()
-
-	if (type == ModType.Dir) 
-            dataFilesList.add(GameInstaller.getDataFiles(this).dropLast(10))
-	else {
-	    dataFilesList.add(GameInstaller.getDataFiles(this))
-
-	    File(GameInstaller.getDataFiles(this).dropLast(10)).listFiles().forEach {
-	        if (!it.isFile())
-	            dataFilesList.add(GameInstaller.getDataFiles(this).dropLast(10) + it.getName())
-	    }
+        val dataFilesList = if (type == ModType.Dir) {
+            ModsPaths.directoryRoots(this)
+        } else {
+            ModsPaths.allDataDirectories(this)
         }
 
-        val linearLayoutManager = LinearLayoutManager(this)
-        linearLayoutManager.orientation = RecyclerView.VERTICAL
-        list.layoutManager = linearLayoutManager
+        list.layoutManager = LinearLayoutManager(this).apply {
+            orientation = RecyclerView.VERTICAL
+        }
 
-	if (type == ModType.Plugin) {
-	    mPluginAdapter.collection = ModsCollection(type, dataFilesList, database)
-            val callback = ModMoveCallback(mPluginAdapter)
-            val touchHelper = ItemTouchHelper(callback)
-            touchHelper.attachToRecyclerView(list)
-            mPluginAdapter.touchHelper = touchHelper
-            list.adapter = mPluginAdapter
-	}
-	else if (type == ModType.Resource) {
-	    mResourceAdapter.collection = ModsCollection(type, dataFilesList, database)
-            val callback = ModMoveCallback(mResourceAdapter)
-            val touchHelper = ItemTouchHelper(callback)
-            touchHelper.attachToRecyclerView(list)
-            mResourceAdapter.touchHelper = touchHelper
-            list.adapter = mResourceAdapter
+        val adapter = when (type) {
+            ModType.Plugin -> mPluginAdapter
+            ModType.Resource -> mResourceAdapter
+            ModType.Dir -> mDirAdapter
+            ModType.Groundcover -> mGroundcoverAdapter
         }
-        else if (type == ModType.Dir){
-	    mDirAdapter.collection = ModsCollection(type, dataFilesList, database)
-            val callback = ModMoveCallback(mDirAdapter)
-            val touchHelper = ItemTouchHelper(callback)
-            touchHelper.attachToRecyclerView(list)
-            mDirAdapter.touchHelper = touchHelper
-            list.adapter = mDirAdapter
-        }
-	else if (type == ModType.Groundcover){ 
-	    mGroundcoverAdapter.collection = ModsCollection(type, dataFilesList, database)
-            val callback = ModMoveCallback(mGroundcoverAdapter)
-            val touchHelper = ItemTouchHelper(callback)
-            touchHelper.attachToRecyclerView(list)
-            mGroundcoverAdapter.touchHelper = touchHelper
-            list.adapter = mGroundcoverAdapter
-        }
+
+        adapter.collection = ModsCollection(type, dataFilesList, database)
+        val touchHelper = ItemTouchHelper(ModMoveCallback(adapter))
+        touchHelper.attachToRecyclerView(list)
+        adapter.touchHelper = touchHelper
+        list.adapter = adapter
     }
 
-    /**
-     * Makes the "back" icon in the actionbar perform the back operation
-     */
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
                 onBackPressed()
                 true
             }
-
             else -> super.onOptionsItemSelected(item)
         }
     }

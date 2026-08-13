@@ -21,8 +21,8 @@
 package parser
 
 import java.util.ArrayList
-import java.util.Collections
 
+/** Parses the launcher command line while preserving quoted arguments. */
 class CommandlineParser(data: String) {
     private val args = ArrayList<String>()
     val argv: Array<String>
@@ -31,11 +31,82 @@ class CommandlineParser(data: String) {
         get() = args.size
 
     init {
-        args.clear()
         args.add("openmw")
+
         if (data.contains("--")) {
-            Collections.addAll(args, *data.split(" ".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray())
+            args.addAll(tokenize(data))
         }
+
         argv = args.toTypedArray()
+    }
+
+    private fun tokenize(input: String): List<String> {
+        val result = mutableListOf<String>()
+        val current = StringBuilder()
+        var quote: Char? = null
+        var tokenStarted = false
+        var index = 0
+
+        fun flush() {
+            if (tokenStarted) {
+                result += current.toString()
+                current.setLength(0)
+                tokenStarted = false
+            }
+        }
+
+        while (index < input.length) {
+            val char = input[index]
+
+            if (quote != null) {
+                when {
+                    char == quote -> {
+                        quote = null
+                        tokenStarted = true
+                        index += 1
+                    }
+                    char == '\\' && index + 1 < input.length &&
+                        (input[index + 1] == quote || input[index + 1] == '\\') -> {
+                        current.append(input[index + 1])
+                        tokenStarted = true
+                        index += 2
+                    }
+                    else -> {
+                        current.append(char)
+                        tokenStarted = true
+                        index += 1
+                    }
+                }
+                continue
+            }
+
+            when {
+                char.isWhitespace() -> {
+                    flush()
+                    index += 1
+                }
+                char == '"' || char == '\'' -> {
+                    quote = char
+                    tokenStarted = true
+                    index += 1
+                }
+                char == '\\' && index + 1 < input.length &&
+                    (input[index + 1].isWhitespace() || input[index + 1] == '"' ||
+                        input[index + 1] == '\'' || input[index + 1] == '\\') -> {
+                    current.append(input[index + 1])
+                    tokenStarted = true
+                    index += 2
+                }
+                else -> {
+                    current.append(char)
+                    tokenStarted = true
+                    index += 1
+                }
+            }
+        }
+
+        // An unmatched quote is treated as extending to the end of input.
+        flush()
+        return result
     }
 }

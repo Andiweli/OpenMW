@@ -27,6 +27,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Bundle
 import android.preference.EditTextPreference
 import android.preference.ListPreference
@@ -35,6 +36,7 @@ import android.preference.PreferenceFragment
 import android.preference.PreferenceGroup
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -42,6 +44,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 
+import com.codekidlabs.storagechooser.Content
 import com.codekidlabs.storagechooser.StorageChooser
 import com.libopenmw.openmw.R
 import file.GameInstaller
@@ -54,6 +57,18 @@ import utils.MyApp
 import java.util.*
 
 class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener {
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // Black/OLED is intentionally limited to the launcher presentation.
+        // The normal Dark design keeps the original AppCompat grey unchanged.
+        val sharedPref = preferenceScreen.sharedPreferences
+        if (sharedPref.getInt(getString(R.string.theme), 0) == 3) {
+            view.setBackgroundColor(Color.BLACK)
+            view.findViewById<View>(android.R.id.list)?.setBackgroundColor(Color.BLACK)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,7 +92,7 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
                 maximum = 3.0f,
                 step = 0.1f,
                 defaultValue = MyApp.app.defaultScaling.coerceIn(0.5f, 3.0f),
-                neutralLabel = "Auto"
+                neutralLabel = getString(R.string.slider_auto)
             )
             true
         }
@@ -137,10 +152,25 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
                     Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 showError(R.string.permissions_error_title, R.string.permissions_error_message)
             } else {
+                val chooserContent = Content().apply {
+                    selectLabel = getString(R.string.chooser_select)
+                    createLabel = getString(R.string.chooser_create)
+                    newFolderLabel = getString(R.string.chooser_new_folder)
+                    cancelLabel = getString(R.string.chooser_cancel)
+                    overviewHeading = getString(R.string.chooser_heading)
+                    internalStorageText = getString(R.string.chooser_internal_storage)
+                    freeSpaceText = getString(R.string.chooser_free_space)
+                    folderCreatedToastText = getString(R.string.chooser_folder_created)
+                    folderErrorToastText = getString(R.string.chooser_folder_error)
+                    textfieldHintText = getString(R.string.chooser_folder_name)
+                    textfieldErrorText = getString(R.string.chooser_empty_folder_name)
+                }
+
                 val chooser = StorageChooser.Builder()
                     .withActivity(activity)
                     .withFragmentManager(fragmentManager)
                     .withMemoryBar(true)
+                    .withContent(chooserContent)
                     .allowCustomPath(true)
                     .setType(StorageChooser.DIRECTORY_CHOOSER)
                     .build()
@@ -171,9 +201,9 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
         val triggerPress = values.getOrNull(0)?.trim()?.toIntOrNull()
         val triggerRelease = values.getOrNull(1)?.trim()?.toIntOrNull()
         val customLabel = if (triggerPress != null && triggerRelease != null) {
-            "Custom ($triggerPress press, $triggerRelease release)"
+            getString(R.string.controller_trigger_custom_values, triggerPress, triggerRelease)
         } else {
-            "Custom"
+            getString(R.string.controller_trigger_custom)
         }
 
         preference.entries = preference.entries
@@ -308,7 +338,7 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
 
         val widthInput = EditText(activity).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
-            hint = "Width"
+            hint = getString(R.string.resolution_width_hint)
             gravity = Gravity.CENTER
             setSingleLine(true)
             match?.groupValues?.getOrNull(1)?.let { setText(it) }
@@ -323,7 +353,7 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
 
         val heightInput = EditText(activity).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
-            hint = "Height"
+            hint = getString(R.string.resolution_height_hint)
             gravity = Gravity.CENTER
             setSingleLine(true)
             match?.groupValues?.getOrNull(2)?.let { setText(it) }
@@ -354,7 +384,7 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
             .setTitle(getString(R.string.pref_customResolution))
             .setView(row)
             .setNegativeButton(android.R.string.cancel, null)
-            .setNeutralButton("Native") { _, _ ->
+            .setNeutralButton(R.string.resolution_native) { _, _ ->
                 sharedPref.edit().putString("pref_customResolution", "").apply()
                 updatePreference(findPreference("pref_customResolution"), "pref_customResolution")
             }
@@ -369,7 +399,7 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
                 if (width == null || height == null || width <= 0 || height <= 0) {
                     Toast.makeText(
                         activity,
-                        "Please enter a valid width and height.",
+                        getString(R.string.resolution_invalid),
                         Toast.LENGTH_SHORT
                     ).show()
                     return@setOnClickListener
@@ -475,7 +505,7 @@ class FragmentSettings : PreferenceFragment(), OnSharedPreferenceChangeListener 
             }
             "pref_customResolution" -> {
                 val value = sharedPref.getString(key, "") ?: ""
-                preference.summary = if (value.isEmpty()) "Native" else value.replace('x', '×')
+                preference.summary = if (value.isEmpty()) getString(R.string.resolution_native) else value.replace('x', '×')
             }
             "pref_gamma" -> {
                 val value = sharedPref.getString(key, "") ?: ""

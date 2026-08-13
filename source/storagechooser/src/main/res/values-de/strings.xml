@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Speicherauswahl</string>
+    <string name="choose_storage">Speicher auswählen</string>
+    <string name="choose_external_storage">Externen Speicher auswählen</string>
+    <string name="external_storage">Externer Speicher</string>
+    <string name="usb_storage">USB-Speicher</string>
+    <string name="text_freespace">%1$s frei</string>
+    <string name="toast_threshold_breached">%1$s reichen für den aktuellen Vorgang nicht aus. Bitte gib etwas Speicherplatz frei.</string>
+    <string name="toast_not_readable">Auf den ausgewählten Speicher kann nicht zugegriffen werden.</string>
+</resources>

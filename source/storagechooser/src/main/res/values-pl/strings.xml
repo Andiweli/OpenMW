@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wybór pamięci</string>
+    <string name="choose_storage">Wybierz pamięć</string>
+    <string name="choose_external_storage">Wybierz pamięć zewnętrzną</string>
+    <string name="external_storage">Pamięć zewnętrzna</string>
+    <string name="usb_storage">Pamięć USB</string>
+    <string name="text_freespace">%1$s wolne</string>
+    <string name="toast_threshold_breached">%1$s nie wystarczy do wykonania bieżącej operacji. Zwolnij trochę miejsca.</string>
+    <string name="toast_not_readable">Wybrana pamięć jest niedostępna.</string>
+</resources>

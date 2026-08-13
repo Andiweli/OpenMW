@@ -160,7 +160,7 @@ class GameActivity : SDLActivity() {
 
             repeat(envs.count())
             {
-                val env: List<String> = envs[i].split("=")
+                val env: List<String> = envs[i].split("=", limit = 2)
                 if (env.count() == 2) Os.setenv(env[0], env[1], true)
                 i = i + 1
             }
@@ -198,11 +198,11 @@ class GameActivity : SDLActivity() {
         progressBar.getLayoutParams().width = 0
         progressBar.getLayoutParams().height = 50
 
-        val message = "GENERATING NAVMESH CACHE"
+        val message = getString(R.string.navmesh_generating_cache)
         val text = TextView(this)
-        text.setText(message)
+        text.text = message
         val bounds = Rect()
-        text.getPaint().getTextBounds(message!!.toString(), 0, message!!.length, bounds)
+        text.paint.getTextBounds(message, 0, message.length, bounds)
         text.setX(((dm.widthPixels / 2) - (bounds.width() / 2)) .toFloat())
         text.setY(((dm.heightPixels / 2) - 200).toFloat())
         text.setTypeface(null, Typeface.BOLD)
@@ -239,14 +239,17 @@ class GameActivity : SDLActivity() {
         override fun onProgressUpdate(vararg progress: String?) {
             super.onProgressUpdate()
 
+            val progressText = progress.firstOrNull() ?: return
+            val progressValue = progressText.toFloatOrNull() ?: return
+
             progressBar.requestLayout()
-            progressBar.getLayoutParams().width = (8.0 * progress[0]!!.toFloat()).toInt()
+            progressBar.layoutParams.width = (8.0f * progressValue).toInt().coerceIn(0, 800)
 
             val bounds = Rect()
-            percentageText.getPaint().getTextBounds(progress[0]!!.toString(), 0, progress[0]!!.length, bounds)
+            percentageText.paint.getTextBounds(progressText, 0, progressText.length, bounds)
 
-            percentageText.setX(((screenWidth / 2) - (bounds.width() / 2)).toFloat())
-            percentageText.setText(progress[0])
+            percentageText.x = ((screenWidth / 2) - (bounds.width() / 2)).toFloat()
+            percentageText.text = progressText
         }
 
     }

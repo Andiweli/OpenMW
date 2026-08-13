@@ -645,18 +645,104 @@ else:
 # GLES2 clip-volume clipping for shadow casters; desktop retains depth clamp.
 # ---------------------------------------------------------------------------
 shadow_compare_marker = 'OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE'
+shadow_pcf_marker = 'OPENMW_ANDROID_051_GLES2_QUALITY_PCF'
 native_clip_marker = 'OPENMW_ANDROID_051_GLES2_NATIVE_SHADOW_CLIPPING'
 
+shadow_pcf_header = '''#define SHADOWS @shadows_enabled
+
+// OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE
+// GLES2/GL4ES: sample OES depth textures through sampler2D and perform
+// the LEQUAL test explicitly; EXT_shadow_samplers is not available.
+//
+// OPENMW_ANDROID_051_GLES2_QUALITY_PCF
+// The launcher specializes these two compile-time constants before each game
+// start. Keeping the kernel compile-time avoids dynamic loops/branches on GLES2.
+// Level 0 = legacy 1 tap, level 1 = 2x2 / 4 taps (Low),
+// level 2 = 3x3 / 9 taps (Medium), level 3 = 4x4 / 16 taps (High).
+#define OPENMW_ANDROID_SHADOW_PCF_LEVEL 2
+#define OPENMW_ANDROID_SHADOW_MAP_RESOLUTION 4096.0
+'''
+
+shadow_pcf_compare = '''// OPENMW_ANDROID_051_GLES2_SHADOW_COORD_BOUNDS
+                // Raw GLES2 depth sampling must never compare receivers outside
+                // the valid projected shadow depth volume. Otherwise z > 1 can
+                // become a view-dependent full-shadow patch with CLAMP_TO_EDGE.
+                if (shadowSpaceCoords@shadow_texture_unit_index.w > 0.0 && shadowXYZ.z > 0.0 && shadowXYZ.z < 1.0)
+                {
+                    vec2 shadowTexel = vec2(1.0 / OPENMW_ANDROID_SHADOW_MAP_RESOLUTION);
+                    // OPENMW_ANDROID_051_GLES2_RECEIVER_DEPTH_BIAS
+                    // Tiny manual receiver bias for the raw GLES2 depth compare.
+                    // Normal offset removes the coarse terrain acne; this small
+                    // residual bias moves only the comparison threshold enough
+                    // to suppress the remaining fine hatch without visibly
+                    // detaching shadows from their casters.
+                    float receiverDepth = max(shadowXYZ.z - 0.00005, 0.0);
+#if OPENMW_ANDROID_SHADOW_PCF_LEVEL == 0
+                    // Legacy fallback: preserve the original single-tap GLES2 comparison.
+                    shadowing = min(step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowXYZ.xy).r), shadowing);
+#elif OPENMW_ANDROID_SHADOW_PCF_LEVEL == 1
+                    // Low: 2x2 PCF. Four neighbouring depth comparisons
+                    // provide the previous Medium profile at modest mobile GPU cost.
+                    vec2 shadowUv = clamp(shadowXYZ.xy, shadowTexel, vec2(1.0) - shadowTexel);
+                    float pcfShadow = 0.0;
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-0.5, -0.5)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 0.5, -0.5)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-0.5,  0.5)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 0.5,  0.5)).r);
+                    shadowing = min(pcfShadow * 0.25, shadowing);
+#elif OPENMW_ANDROID_SHADOW_PCF_LEVEL == 2
+                    // Medium: full 3x3 PCF. Nine independent nearest-depth
+                    // comparisons retain the previous High profile quality
+                    // without re-enabling unstable multi-map cascades.
+                    vec2 shadowUv = clamp(shadowXYZ.xy, shadowTexel, vec2(1.0) - shadowTexel);
+                    float pcfShadow = 0.0;
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-1.0, -1.0)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 0.0, -1.0)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 1.0, -1.0)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-1.0,  0.0)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 1.0,  0.0)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-1.0,  1.0)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 0.0,  1.0)).r);
+                    pcfShadow += step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 1.0,  1.0)).r);
+                    shadowing = min(pcfShadow * (1.0 / 9.0), shadowing);
+#else
+                    // High: weighted 4x4 tent PCF at 4096. A regular box filter
+                    // can reveal its sampling grid on gently sloped terrain.
+                    // The separable 1-3-3-1 weights keep all 16 depth samples,
+                    // favour the centre, and suppress visible hatch/banding.
+                    // OPENMW_ANDROID_051_GLES2_TENT_PCF
+                    vec2 shadowMargin = shadowTexel * 2.0;
+                    vec2 shadowUv = clamp(shadowXYZ.xy, shadowMargin, vec2(1.0) - shadowMargin);
+                    float pcfShadow = 0.0;
+                    pcfShadow += 1.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-1.5, -1.5)).r);
+                    pcfShadow += 3.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-0.5, -1.5)).r);
+                    pcfShadow += 3.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 0.5, -1.5)).r);
+                    pcfShadow += 1.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 1.5, -1.5)).r);
+                    pcfShadow += 3.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-1.5, -0.5)).r);
+                    pcfShadow += 9.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-0.5, -0.5)).r);
+                    pcfShadow += 9.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 0.5, -0.5)).r);
+                    pcfShadow += 3.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 1.5, -0.5)).r);
+                    pcfShadow += 3.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-1.5,  0.5)).r);
+                    pcfShadow += 9.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-0.5,  0.5)).r);
+                    pcfShadow += 9.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 0.5,  0.5)).r);
+                    pcfShadow += 3.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 1.5,  0.5)).r);
+                    pcfShadow += 1.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-1.5,  1.5)).r);
+                    pcfShadow += 3.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2(-0.5,  1.5)).r);
+                    pcfShadow += 3.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 0.5,  1.5)).r);
+                    pcfShadow += 1.0 * step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowUv + shadowTexel * vec2( 1.5,  1.5)).r);
+                    shadowing = min(pcfShadow * (1.0 / 64.0), shadowing);
+#endif
+                }'''
+
 text = shadow_fragment.read_text(encoding='utf-8')
+shadow_text_changed = False
 if shadow_compare_marker not in text:
     text = replace_once(
         text,
         '#define SHADOWS @shadows_enabled\n',
-        '#define SHADOWS @shadows_enabled\n\n'
-        '// OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE\n'
-        '// GLES2/GL4ES: sample OES depth textures through sampler2D and perform\n'
-        '// the LEQUAL test explicitly; EXT_shadow_samplers is not available.\n',
-        'shadows_fragment/manual compare marker',
+        shadow_pcf_header,
+        'shadows_fragment/manual compare + quality PCF header',
     )
     text = replace_once(
         text,
@@ -667,16 +753,44 @@ if shadow_compare_marker not in text:
     text = replace_once(
         text,
         'shadowing = min(shadow2DProj(shadowTexture@shadow_texture_unit_index, shadowSpaceCoords@shadow_texture_unit_index).r, shadowing);',
-        '''// OPENMW_ANDROID_051_GLES2_SHADOW_COORD_BOUNDS
+        shadow_pcf_compare,
+        'shadows_fragment/manual LEQUAL + quality PCF',
+    )
+    shadow_text_changed = True
+elif shadow_pcf_marker not in text:
+    # Upgrade an already-patched Patch-12 receiver without disturbing the
+    # later orthographic/stability work in the same source tree.
+    old_header = '''#define SHADOWS @shadows_enabled
+
+// OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE
+// GLES2/GL4ES: sample OES depth textures through sampler2D and perform
+// the LEQUAL test explicitly; EXT_shadow_samplers is not available.
+'''
+    old_compare = '''// OPENMW_ANDROID_051_GLES2_SHADOW_COORD_BOUNDS
                 // Raw GLES2 depth sampling must never compare receivers outside
                 // the valid projected shadow depth volume. Otherwise z > 1 can
                 // become a view-dependent full-shadow patch with CLAMP_TO_EDGE.
                 if (shadowSpaceCoords@shadow_texture_unit_index.w > 0.0 && shadowXYZ.z > 0.0 && shadowXYZ.z < 1.0)
-                    shadowing = min(step(shadowXYZ.z, texture2D(shadowTexture@shadow_texture_unit_index, shadowXYZ.xy).r), shadowing);''',
-        'shadows_fragment/manual LEQUAL',
+                    shadowing = min(step(receiverDepth, texture2D(shadowTexture@shadow_texture_unit_index, shadowXYZ.xy).r), shadowing);'''
+    text = replace_once(
+        text,
+        old_header,
+        shadow_pcf_header,
+        'shadows_fragment/upgrade quality PCF header',
     )
+    text = replace_once(
+        text,
+        old_compare,
+        shadow_pcf_compare,
+        'shadows_fragment/upgrade quality PCF compare',
+    )
+    shadow_text_changed = True
+
+if shadow_text_changed:
     shadow_fragment.write_text(text, encoding='utf-8', newline='\n')
-    print('Applied Android GLES2 manual shadow comparison shader.')
+    print('Applied Android GLES2 manual shadow comparison with quality-dependent PCF.')
+elif shadow_pcf_marker in text:
+    print('Android GLES2 quality-dependent PCF shadow receiver is already applied.')
 
 text = shadow_casting.read_text(encoding='utf-8')
 if native_clip_marker not in text:

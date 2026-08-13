@@ -1,53 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <PreferenceCategory android:title="Engine">
-        <ListPreference
-            android:key="gs_groundcover_handling"
-            android:summary="%s \nEnable some special settings for groundcover mods (rendering distance, density). Also enable animation and disable colision for groundcover meshes. Require to load groundcover mods via Groundcovers tab in mod manager"
-            android:title="Groundcover Handling"
-            android:dialogTitle="Groundcover Handling"
-            android:entries="@array/gs_groundcover_handling_entries"
-            android:entryValues="@array/gs_groundcover_handling_values"
-            android:defaultValue="0" />
-
-        <CheckBoxPreference
-            android:key="gs_groundcover_point_lighting"
-            android:title="Point Lighting on Groundcover"
-            android:summary="OpenMW 0.51: allow nearby lamps and other point lights to illuminate grass. Disable to save some GPU performance."
-            android:defaultValue="true" />
-
-        <CheckBoxPreference
-            android:key="gs_build_navmesh"
-            android:title="Build Navmesh for World Geometry"
-            android:defaultValue="true"
-            android:summary="Enable navigator. When enabled background threads are started to build nav mesh for world geometry. Pathfinding system uses nav mesh to build paths. When disabled only pathgrid is used to build paths. Single-core CPU systems may have big performance impact on exiting interior location and moving across exterior world. May slightly affect performance on multi-core CPU systems. Multi-core CPU systems may have different latency for nav mesh update depending on other settings and system performance. Moving across external world, entering/exiting location produce nav mesh update. NPC and creatures may not be able to find path before nav mesh is built around them. Try to disable this if you want to have old fashioned AI which doesn’t know where to go when you stand behind that stone and casting a firebolt." />
-
-        <CheckBoxPreference
-            android:key="gs_write_navmesh"
-            android:title="Write Navmesh Cache to Disk"
-            android:defaultValue="false"
-            android:summary="Cache navigation mesh tiles to disk" />
-
+    <PreferenceCategory android:title="@string/l10n_gs_engine_engine_title">
+        <ListPreference android:key="gs_groundcover_handling" android:summary="@string/gs_groundcover_handling_summary" android:title="@string/gs_groundcover_handling_title" android:dialogTitle="@string/gs_groundcover_handling_dialogtitle" android:entries="@array/gs_groundcover_handling_entries" android:entryValues="@array/gs_groundcover_handling_values" android:defaultValue="0" />
+        <CheckBoxPreference android:key="gs_groundcover_point_lighting" android:title="@string/gs_groundcover_point_lighting_title" android:summary="@string/gs_groundcover_point_lighting_summary" android:defaultValue="true" />
+        <CheckBoxPreference android:key="gs_build_navmesh" android:title="@string/gs_build_navmesh_title" android:defaultValue="true" android:summary="@string/gs_build_navmesh_summary" />
+        <CheckBoxPreference android:key="gs_write_navmesh" android:title="@string/gs_write_navmesh_title" android:defaultValue="false" android:summary="@string/gs_write_navmesh_summary" />
     </PreferenceCategory>
-
-    <PreferenceCategory android:title="Threading">
-
-        <Preference
-            android:key="gs_navmesh_threads"
-            android:title="Background Navmesh Threads"
-            android:summary="Number of background threads to update nav mesh. Adjustable from 1 to 8; default is 1." />
-
-        <Preference
-            android:key="gs_physics_threads"
-            android:title="Background Physics Threads"
-            android:summary="Number of background threads used for physics updates. Adjustable from 1 to 8; default is 1." />
-
-        <Preference
-            android:key="gs_preload_threads"
-            android:title="Background Preload Threads"
-            android:summary="Number of threads used for preloading operations. Adjustable from 1 to 8; default is 1." />
-
+    <PreferenceCategory android:title="@string/l10n_gs_engine_threading_title">
+        <Preference android:key="gs_navmesh_threads" android:title="@string/gs_navmesh_threads_title" android:summary="@string/gs_navmesh_threads_summary" />
+        <Preference android:key="gs_physics_threads" android:title="@string/gs_physics_threads_title" android:summary="@string/gs_physics_threads_summary" />
+        <Preference android:key="gs_preload_threads" android:title="@string/gs_preload_threads_title" android:summary="@string/gs_preload_threads_summary" />
     </PreferenceCategory>
-
 </PreferenceScreen>

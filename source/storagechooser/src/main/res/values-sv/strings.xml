@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lagringsväljare</string>
+    <string name="choose_storage">Välj lagring</string>
+    <string name="choose_external_storage">Välj extern lagring</string>
+    <string name="external_storage">Extern lagring</string>
+    <string name="usb_storage">USB-lagring</string>
+    <string name="text_freespace">%1$s ledigt</string>
+    <string name="toast_threshold_breached">%1$s räcker inte för den aktuella åtgärden. Frigör lite lagringsutrymme.</string>
+    <string name="toast_not_readable">Den valda lagringen går inte att komma åt.</string>
+</resources>

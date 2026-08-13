@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sélecteur de stockage</string>
+    <string name="choose_storage">Choisir le stockage</string>
+    <string name="choose_external_storage">Choisir le stockage externe</string>
+    <string name="external_storage">Stockage externe</string>
+    <string name="usb_storage">Stockage USB</string>
+    <string name="text_freespace">%1$s libres</string>
+    <string name="toast_threshold_breached">%1$s ne suffisent pas pour l’opération en cours. Veuillez libérer de l’espace.</string>
+    <string name="toast_not_readable">Le stockage sélectionné n’est pas accessible.</string>
+</resources>

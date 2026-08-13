@@ -25,71 +25,82 @@ import constants.Constants
 import java.io.File
 import java.io.IOException
 import java.nio.charset.Charset
+import java.util.Locale
 
 /**
  * Class responsible for initial game setup which involves
- * transforming morrowind.ini into openmw.cfg
+ * transforming morrowind.ini into openmw.cfg.
  */
 class GameInstaller(path: String) {
 
     val dir = File(path)
 
     /**
-     * Lists the root directory and finds a file or directory named "name",
-     * doing case-insensitive checks
-     * @param name Name to search
-     * @return File object if it was found, null otherwise
+     * Lists the root directory and finds a file or directory named [name]
+     * using a case-insensitive comparison.
      */
     private fun findCaseInsensitive(name: String): File? {
-        val nameLower = name.toLowerCase()
-        return dir
-            .list { _, fileName -> fileName.toLowerCase() == nameLower }
-            .map { File(dir, it) }
-            .firstOrNull()
+        val nameLower = name.lowercase(Locale.ROOT)
+        return try {
+            dir.listFiles()
+                ?.firstOrNull { it.name.lowercase(Locale.ROOT) == nameLower }
+        } catch (_: SecurityException) {
+            null
+        }
     }
 
     /**
-     * Checks that the "path" directory contains a morrowind.ini,
-     * and that there's a "Data Files" directory
+     * Checks that the selected game directory contains a Morrowind.ini file
+     * and a Data Files directory.
      */
     fun check(): Boolean {
-        // Root directory must exist and be a directory
-        if (!dir.exists() || !dir.isDirectory)
+        if (!dir.isDirectory)
             return false
 
-        // morrowind.ini as well as data files must exist
-        return findCaseInsensitive(INI_NAME) != null
-            && findCaseInsensitive(DATA_NAME) != null
+        val ini = findCaseInsensitive(INI_NAME)
+        val dataFiles = findCaseInsensitive(DATA_NAME)
+        return ini?.isFile == true && dataFiles?.isDirectory == true
     }
 
     /**
-     * Returns path to the Data Files directory as a string
+     * Returns the actual Data Files directory found on disk. This preserves
+     * the real filename casing on case-sensitive filesystems.
+     *
+     * If the directory has not been validated yet, the conventional path is
+     * returned so callers can still display a useful location.
      */
-    fun findDataFiles(): String {
-        return File(dir, DATA_NAME).absolutePath
+    fun findDataFilesFile(): File {
+        return findCaseInsensitive(DATA_NAME)
+            ?.takeIf { it.isDirectory }
+            ?: File(dir, DATA_NAME)
     }
 
+    /** Returns the absolute path to the Data Files directory. */
+    fun findDataFiles(): String = findDataFilesFile().absolutePath
+
     /**
-     * Adds a .nomedia to the game folder so that it doesn't bloat up the gallery
-     * If this fails, then who cares
+     * Adds a .nomedia file to the game folder so media scanners do not index
+     * all game assets. Failure is intentionally non-fatal.
      */
     fun setNomedia() {
         try {
             val file = File(dir, ".nomedia")
             if (!file.exists())
                 file.createNewFile()
-        } catch (e: IOException) {
+        } catch (_: IOException) {
+            // Non-critical convenience file.
         }
     }
 
     /**
-     * Converts morrowind.ini into openmw format and places it into our resources directory
-     * (properly named and everything)
-     * @param encoding Game encoding as entered by the user; one of pref_encoding_values
-     * @return Whether the conversion succeeded
+     * Converts Morrowind.ini into OpenMW format and writes the result into
+     * the application configuration directory.
+     *
+     * @param encoding game encoding selected by the user
+     * @return true when the conversion and write completed successfully
      */
     fun convertIni(encoding: String): Boolean {
-        val file = findCaseInsensitive(INI_NAME) ?: return false
+        val file = findCaseInsensitive(INI_NAME)?.takeIf { it.isFile } ?: return false
 
         val charset = when (encoding) {
             "win1250" -> Charset.forName("windows-1250")
@@ -97,20 +108,28 @@ class GameInstaller(path: String) {
             else -> Charset.forName("windows-1252")
         }
 
-        val contents = file.readText(charset)
-        if (contents.isEmpty())
-            return false
+        return try {
+            val contents = file.readText(charset)
+            if (contents.isEmpty())
+                return false
 
-        val ini = IniConverter(contents)
-        val output = ini.convert()
-        // there's gotta be something in the output as well
-        if (output.isEmpty())
-            return false
+            val output = IniConverter(contents).convert()
+            if (output.isEmpty())
+                return false
 
-        File(File(Constants.OPENMW_FALLBACK_CFG).parent).mkdirs()
-        File(Constants.OPENMW_FALLBACK_CFG).writeText(output)
-
-        return true
+            val target = File(Constants.OPENMW_FALLBACK_CFG)
+            target.parentFile?.mkdirs()
+            target.writeText(output)
+            target.isFile && target.length() > 0
+        } catch (_: IOException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        } catch (_: RuntimeException) {
+            // Malformed input should be reported as a failed conversion, not
+            // terminate the launcher process.
+            false
+        }
     }
 
     companion object {
@@ -118,17 +137,15 @@ class GameInstaller(path: String) {
         const val DATA_NAME = "Data Files"
         const val DEFAULT_CHARSET_PREF = "win1252"
 
-        /**
-         * Returns path of Data Files, making use of path to the game from the settings
-         * @param ctx Android context
-         * @return Absolute path to data files as a string
-         */
-        fun getDataFiles(ctx: Context): String {
+        /** Returns the configured Data Files directory. */
+        fun getDataFilesFile(ctx: Context): File {
             val gamePath = PreferenceManager.getDefaultSharedPreferences(ctx)
-                .getString("game_files", "")!!
-            val inst = GameInstaller(gamePath)
-            return inst.findDataFiles()
+                .getString("game_files", "")
+                .orEmpty()
+            return GameInstaller(gamePath).findDataFilesFile()
         }
-    }
 
+        /** Returns the absolute path of the configured Data Files directory. */
+        fun getDataFiles(ctx: Context): String = getDataFilesFile(ctx).absolutePath
+    }
 }

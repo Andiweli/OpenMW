@@ -1,17 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <PreferenceCategory android:title="Miscellaneous">
-        <CheckBoxPreference
-            android:key="gs_merchant_equipping_fix"
-            android:title="Merchant Equipping Fix"
-            android:summary="Prevents merchants from equipping items that are sold to them."/>
-
-        <CheckBoxPreference
-            android:key="gs_trainers_bs"
-            android:title="Trainers Choose Training Skill Based on Their Base Skill Point"
-            android:summary="Trainers now only choose which skills to train using their base skill points, allowing mercantile improving effects to be used without making mercantile an offered skill."/>
-
+    <PreferenceCategory android:title="@string/l10n_gs_bug_fixes_miscellaneous_title">
+        <CheckBoxPreference android:key="gs_merchant_equipping_fix" android:title="@string/gs_merchant_equipping_fix_title" android:summary="@string/gs_merchant_equipping_fix_summary" />
+        <CheckBoxPreference android:key="gs_trainers_bs" android:title="@string/gs_trainers_bs_title" android:summary="@string/gs_trainers_bs_summary" />
     </PreferenceCategory>
-
 </PreferenceScreen>

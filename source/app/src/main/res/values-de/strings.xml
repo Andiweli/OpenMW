@@ -1,0 +1,189 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OpenMW</string>
+    <string name="general_settings">Einrichtung</string>
+    <string name="start_game_label">Spiel starten</string>
+    <string name="closeDrawer">Navigation</string>
+    <string name="openDrawer">Navigation geschlossen</string>
+    <string name="game_files">Spieldateien</string>
+    <string name="pref_graphicsLibrary">Grafik-API-Bibliothek</string>
+    <string name="pref_graphicsLibrary_default">gles2</string>
+    <string name="pref_advanced">Erweitert</string>
+    <string name="pref_graphics">Grafik</string>
+    <string name="pref_commandLine">Benutzerdefinierte Kommandozeilenargumente</string>
+    <string name="pref_envLine">Benutzerdefinierte Umgebungsvariablen</string>
+    <string name="pref_nohighp">Mittlere Shader-Präzision</string>
+    <string name="pref_nohighp_summary">Verwendet mittlere statt hoher Präzision; nur mit dem Shader-Preset „Modified“ verfügbar.</string>
+    <string name="pref_ui">Benutzeroberfläche</string>
+    <string name="pref_textureShrinking">Texturverkleinerung</string>
+    <string name="pref_textureShrinking_default">none</string>
+    <string name="pref_shadersDir">Shader-Presets</string>
+    <string name="pref_shadersDir_default">none</string>
+    <string name="pref_gamma">Gamma</string>
+    <string name="pref_uiScaling">UI-Skalierungsfaktor</string>
+    <string name="uiScaling_auto">Automatisch (%1$.2f)</string>
+    <string name="pref_screen_keeper">Bildschirm immer eingeschaltet lassen</string>
+    <string name="pref_touchpadSensitivity">Empfindlichkeit des virtuellen Touchpads</string>
+    <string name="action_reset_config">Statische Konfigurationsdateien zurücksetzen</string>
+    <string name="action_reset_user_config">Benutzerkonfigurationsdateien zurücksetzen</string>
+    <string name="action_reset_user_resources">Benutzerressourcen zurücksetzen</string>
+    <string name="action_reset_screen_controls">Bildschirmsteuerung zurücksetzen</string>
+    <string name="action_show_screen_controls">Bildschirmsteuerung</string>
+    <string name="pref_hide_controls">Bildschirmtasten ausblenden</string>
+    <string name="config_was_reset">Statische Konfiguration wurde auf Standardwerte zurückgesetzt</string>
+    <string name="user_config_was_reset">Benutzerkonfiguration wurde auf Standardwerte zurückgesetzt</string>
+    <string name="user_resources_was_reset">Benutzerressourcen wurden auf Standardwerte zurückgesetzt</string>
+    <string name="pref_lang">Spracheinstellungen</string>
+    <string name="pref_encoding">Spielsprache</string>
+    <string name="pref_encoding_default">win1252</string>
+    <string name="btn_opacityPlus">Alpha+</string>
+    <string name="btn_opacityMinus">Alpha-</string>
+    <string name="btn_sizePlus">Größe+</string>
+    <string name="btn_sizeMinus">Größe-</string>
+    <string name="btn_resetControlsLayout">Auf Standard zurücksetzen</string>
+    <string name="pref_physicsFPS2">Physik-FPS</string>
+    <string name="pref_framerate_limit">Bildratenlimit</string>
+    <string name="pref_framerate_limit_default">60</string>
+    <string name="pref_physicsFPS2_default">30</string>
+    <string name="btn_back">Zurück</string>
+    <string name="pref_customResolution">Benutzerdefinierte Auflösung</string>
+    <string name="pref_display_cutout_area">Im Display-Ausschnitt anzeigen</string>
+    <string name="mods">Spielmodifikationen</string>
+    <string name="action_about">Info</string>
+    <string name="about_title">Über OpenMW</string>
+    <string name="action_theme">Design</string>
+    <string name="action_theme_system">System</string>
+    <string name="action_theme_light">Hell</string>
+    <string name="action_theme_dark">Dunkel</string>
+    <string name="action_theme_oled">Schwarz/OLED</string>
+    <string name="activity_settings">Spieleinstellungen</string>
+    <string name="game_mechanics_activity_settings">Gameplay</string>
+    <string name="visuals_activity_settings">Grafik</string>
+    <string name="animations_activity_settings">Animationen</string>
+    <string name="interface_activity_settings">Oberfläche</string>
+    <string name="bug_fixes_activity_settings">Bugfixes</string>
+    <string name="miscellaneous_activity_settings">Verschiedenes</string>
+    <string name="engine_activity_settings">Engine</string>
+    <string name="activity_mods">Mods</string>
+    <string name="tab_plugins">Plugins</string>
+    <string name="tab_resources">Ressourcen</string>
+    <string name="tab_dirs">Verzeichnisse</string>
+    <string name="tab_groundcover">Bodenvegetation</string>
+    <string name="data_error_title">Fehler beim Auffinden der Spieldateien</string>
+    <string name="data_error_message">Bitte wähle ein Verzeichnis, das sowohl die Datei „Morrowind.ini“ als auch das Verzeichnis „Data Files“ enthält.</string>
+    <string name="permissions_error_title">Keine Berechtigung</string>
+    <string name="permissions_error_message">OpenMW benötigt Speicherberechtigungen, um die Morrowind-Spieldateien zu finden und darauf zuzugreifen. Bitte erteile diese Berechtigung in den App-Einstellungen.</string>
+    <string name="ini_error_message">Die Konfigurationsdatei konnte nicht umgewandelt werden. Bitte stelle sicher, dass „Morrowind.ini“ korrekt aufgebaut ist.</string>
+    <string name="no_data_files_title">Spieldateien nicht gefunden</string>
+    <string name="no_data_files_message">Du musst die Morrowind-Spieldateien auf dein Gerät kopieren und unter „Spieldateien“ den Pfad auswählen, bevor das Spiel gestartet werden kann.</string>
+    <string name="category_performance">Leistung</string>
+    <string name="no_content_files_title">Keine Inhaltsdateien!</string>
+    <string name="no_content_files_message">Es sind keine Inhaltsdateien aktiviert. Bevor das Spiel gestartet werden kann, musst du im Menü „Mods…“ mindestens eine Plugin-Datei aktivieren.</string>
+    <string name="no_content_files_dismiss">Trotzdem fortfahren</string>
+    <string name="configure_mods">Mods konfigurieren</string>
+    <string name="pref_mouse_mode">Mausmodus in Menüs</string>
+    <string name="pref_mouse_mode_default">hybrid</string>
+    <string name="bugsnag_yes">Ja</string>
+    <string name="bugsnag_no">Nein</string>
+    <string name="bugsnag_policy">Datenschutzerklärung</string>
+    <string name="bugsnag_consent_title">Abstürze automatisch melden?</string>
+    <string name="bugsnag_consent_message">Möchtest du die automatische Absturzmeldung aktivieren?\nBei einem Absturz werden einige Daten über dein Gerät, deine Konfiguration und installierte Mods automatisch an Bugsnag übermittelt. Weitere Informationen findest du in der Datenschutzerklärung.\nDiese Einstellung kann jederzeit über das Menü geändert werden.</string>
+    <string name="bugsnag_consent_restart_title">Bitte die Anwendung neu starten</string>
+    <string name="bugsnag_consent_restart_message">Du musst die Anwendung neu starten, damit diese Einstellungen wirksam werden.</string>
+    <string name="action_bugsnag_consent">Absturzberichte</string>
+    <string name="dialog_howto">Anleitung</string>
+    <string name="no_browser_title">URL kann nicht geöffnet werden</string>
+    <string name="no_browser_message">Es scheint kein Webbrowser installiert zu sein. Folgende URL sollte geöffnet werden:\n\n%1$s</string>
+    <string name="pref_show_qp">Schnelltasten aktivieren</string>
+    <string name="pref_show_fn">FN-Tasten aktivieren</string>
+    <string name="pref_always_show_top_bar">Symbole der oberen Leiste immer anzeigen</string>
+    <string name="theme">0</string>
+    <string name="shadows_activity_settings">Schatten</string>
+    <string name="slider_auto">Automatisch</string>
+    <string name="controller_trigger_custom_values">Benutzerdefiniert (%1$d drücken, %2$d loslassen)</string>
+    <string name="controller_trigger_custom">Benutzerdefiniert</string>
+    <string name="resolution_width_hint">Breite</string>
+    <string name="resolution_height_hint">Höhe</string>
+    <string name="resolution_native">Nativ</string>
+    <string name="resolution_invalid">Bitte gib eine gültige Breite und Höhe ein.</string>
+    <string name="launch_preparing">Wird geladen…</string>
+    <string name="launch_preparing_game">OpenMW wird vorbereitet…</string>
+    <string name="launch_failed_title">OpenMW konnte nicht gestartet werden</string>
+    <string name="launch_failed_unknown">Unbekannter Fehler bei der Vorbereitung von OpenMW.</string>
+    <string name="user_configuration">Benutzerkonfiguration</string>
+    <string name="action_theme_submenu">Design ›</string>
+    <string name="theme_set_to">Design auf %1$s gesetzt</string>
+    <string name="about_port_info">Dieser Port von Andreas „Andiweli“ Stürmer\nBasierend auf einem Port von CaveBros\nOpenMW vom OpenMW-Team seit 2008</string>
+    <string name="third_party_notices">Hinweise zu Drittanbieterkomponenten</string>
+    <string name="chooser_select">Auswählen</string>
+    <string name="chooser_create">Erstellen</string>
+    <string name="chooser_new_folder">Neuer Ordner</string>
+    <string name="chooser_cancel">Abbrechen</string>
+    <string name="chooser_heading">Speicher auswählen</string>
+    <string name="chooser_internal_storage">Interner Speicher</string>
+    <string name="chooser_free_space">%1$s frei</string>
+    <string name="chooser_folder_created">Ordner erstellt</string>
+    <string name="chooser_folder_error">Beim Erstellen des Ordners ist ein Fehler aufgetreten. Bitte versuche es erneut.</string>
+    <string name="chooser_folder_name">Ordnername</string>
+    <string name="chooser_empty_folder_name">Der Ordnername darf nicht leer sein</string>
+    <string-array name="pref_encoding_entries">
+        <item>Mittel- und Osteuropäisch (win1250)</item>
+        <item>Kyrillisch (win1251)</item>
+        <item>Lateinisch (win1252)</item>
+    </string-array>
+    <string-array name="gs_factor_strength_into_hand_to_hand_combat_entries">
+        <item>Aus</item>
+        <item>Betrifft Werwölfe</item>
+        <item>Betrifft Werwölfe nicht</item>
+    </string-array>
+    <string-array name="gs_show_owned_entries">
+        <item>Aus</item>
+        <item>Nur Tooltip</item>
+        <item>Nur Fadenkreuz</item>
+        <item>Tooltip und Fadenkreuz</item>
+    </string-array>
+    <string-array name="gs_groundcover_handling_entries">
+        <item>Aus</item>
+        <item>Paging</item>
+        <item>Instancing</item>
+    </string-array>
+    <string-array name="pref_omw051_controller_trigger_sensitivity_entries">
+        <item>OpenMW-Standard (15/16 drücken, 13/16 loslassen)</item>
+        <item>Ausgewogen (12/16 drücken, 10/16 loslassen)</item>
+        <item>Empfindlich (8/16 drücken, 6/16 loslassen)</item>
+    </string-array>
+    <string-array name="pref_textureShrinking_entries">
+        <item>Keine</item>
+        <item>Niedrig</item>
+        <item>Mittel</item>
+        <item>Hoch</item>
+    </string-array>
+    <string-array name="pref_shadersDir_entries">
+        <item>Original</item>
+        <item>Modifiziert</item>
+        <item>Zesterer</item>
+        <item>OMWFX</item>
+    </string-array>
+    <string-array name="pref_mouse_mode_entries">
+        <item>Hybrid</item>
+        <item>Relative Joystick-Steuerung</item>
+        <item>Absolute Touch-Steuerung</item>
+    </string-array>
+    <string-array name="gs_shadow_quality_entries">
+        <item>Niedrig</item>
+        <item>Mittel</item>
+        <item>Hoch</item>
+    </string-array>
+    <string-array name="gs_shadow_distance_entries">
+        <item>Niedrig</item>
+        <item>Mittel</item>
+        <item>Hoch</item>
+    </string-array>
+    <string name="osk_shift">Umschalt</string>
+    <string name="osk_caps_lock">Feststelltaste</string>
+    <string name="osk_language">Sprache</string>
+    <string name="sdl_error_title">SDL-Fehler</string>
+    <string name="sdl_exit">Beenden</string>
+    <string name="sdl_start_error">Beim Starten der Anwendung ist ein Fehler aufgetreten. Bitte versuche es erneut und/oder installiere die Anwendung neu.\n\nFehler: %1$s</string>
+    <string name="navmesh_generating_cache">NAVMESH-CACHE WIRD ERSTELLT</string>
+</resources>

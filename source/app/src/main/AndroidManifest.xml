@@ -47,7 +47,7 @@
         <activity
             android:name="ui.activity.ModsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/activity_mods"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -55,7 +55,7 @@
         <activity
             android:name="ui.activity.SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -63,7 +63,7 @@
         <activity
             android:name="ui.activity.Game_Mechanics_SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/game_mechanics_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -71,7 +71,7 @@
         <activity
             android:name="ui.activity.Visuals_SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/visuals_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -79,7 +79,7 @@
         <activity
             android:name="ui.activity.Shadows_SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/shadows_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -87,7 +87,7 @@
         <activity
             android:name="ui.activity.Animations_SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/animations_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -95,7 +95,7 @@
         <activity
             android:name="ui.activity.Interface_SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/interface_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -103,7 +103,7 @@
         <activity
             android:name="ui.activity.Bug_Fixes_SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/bug_fixes_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -111,7 +111,7 @@
         <activity
             android:name="ui.activity.Miscellaneous_SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/miscellaneous_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />
@@ -119,7 +119,7 @@
         <activity
             android:name="ui.activity.Engine_SettingsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/engine_activity_settings"
             android:screenOrientation="fullUser"
             android:theme="@style/MyTheme" />

@@ -27,17 +27,27 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 object PermissionHelper {
+    const val STORAGE_PERMISSION_REQUEST = 23
+
     fun getWriteExternalStoragePermission(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= 23) {
-            if (ContextCompat.checkSelfPermission(activity,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                if (!ActivityCompat.shouldShowRequestPermissionRationale(activity,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                    ActivityCompat.requestPermissions(activity,
-                        arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 23
-                    )
-                }
-            }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+            return
+
+        if (ContextCompat.checkSelfPermission(
+                activity,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            return
         }
+
+        // Request again even when Android recommends showing a rationale.
+        // The previous implementation did nothing in that state, which left
+        // users permanently stuck after a single denial.
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+            STORAGE_PERMISSION_REQUEST
+        )
     }
 }

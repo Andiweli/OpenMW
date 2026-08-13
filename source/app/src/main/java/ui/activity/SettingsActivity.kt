@@ -141,8 +141,11 @@ class SettingsActivity : AppCompatActivity() {
         })
 */
 
-        fragmentManager.beginTransaction()
-            .replace(R.id.settings_frame, FragmentGameSettings()).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettings())
+                .commit()
+        }
     }
 
     /**
@@ -160,14 +163,21 @@ class SettingsActivity : AppCompatActivity() {
     }
 }
 
-class FragmentGameSettingsPage(val res: Int) : PreferenceFragment(), OnSharedPreferenceChangeListener {
+class FragmentGameSettingsPage : PreferenceFragment(), OnSharedPreferenceChangeListener {
+    private var pageResource: Int = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        addPreferencesFromResource(res)
+        pageResource = arguments?.getInt(ARG_PAGE_RESOURCE, 0) ?: 0
+        if (pageResource == 0) {
+            throw IllegalStateException("Missing settings page resource")
+        }
+
+        addPreferencesFromResource(pageResource)
         preferenceScreen.sharedPreferences.registerOnSharedPreferenceChangeListener(this)
 
-        if (res == R.xml.gs_game_mechanics) {
+        if (pageResource == R.xml.gs_game_mechanics) {
             findPreference("gs_always_allow_npc_to_follow_over_water_surface").isEnabled =
                 preferenceScreen.sharedPreferences.getBoolean("gs_build_navmesh", true)
 
@@ -180,12 +190,12 @@ class FragmentGameSettingsPage(val res: Int) : PreferenceFragment(), OnSharedPre
                 quicksavePreference.value = normalizedQuicksaves
         }
 
-        if (res == R.xml.gs_visuals) {
+        if (pageResource == R.xml.gs_visuals) {
             normalizeFloatPreference("gs_object_paging_min_size", 0.01f, 1.0f, 0.25f, 2)
             findPreference("gs_object_paging_min_size").setOnPreferenceClickListener {
                 showSteppedSliderPreference(
                     key = "gs_object_paging_min_size",
-                    title = "Object Paging Min Size",
+                    title = findPreference("gs_object_paging_min_size").title.toString(),
                     minimum = 0.01f,
                     maximum = 1.0f,
                     step = 0.01f,
@@ -196,24 +206,24 @@ class FragmentGameSettingsPage(val res: Int) : PreferenceFragment(), OnSharedPre
             }
         }
 
-        if (res == R.xml.gs_animations)
+        if (pageResource == R.xml.gs_animations)
             updatePreference(preferenceScreen.sharedPreferences, "gs_use_additional_animation_sources")
 
-        if (res == R.xml.gs_engine) {
+        if (pageResource == R.xml.gs_engine) {
             updatePreference(preferenceScreen.sharedPreferences, "gs_build_navmesh")
             normalizeIntegerPreference("gs_navmesh_threads", 1, 8, 1)
             normalizeIntegerPreference("gs_physics_threads", 1, 8, 1)
             normalizeIntegerPreference("gs_preload_threads", 1, 8, 1)
 
             listOf(
-                "gs_navmesh_threads" to "Background Navmesh Threads",
-                "gs_physics_threads" to "Background Physics Threads",
-                "gs_preload_threads" to "Background Preload Threads"
-            ).forEach { (key, title) ->
+                "gs_navmesh_threads",
+                "gs_physics_threads",
+                "gs_preload_threads"
+            ).forEach { key ->
                 findPreference(key).setOnPreferenceClickListener {
                     showSteppedSliderPreference(
                         key = key,
-                        title = title,
+                        title = findPreference(key).title.toString(),
                         minimum = 1.0f,
                         maximum = 8.0f,
                         step = 1.0f,
@@ -377,6 +387,18 @@ class FragmentGameSettingsPage(val res: Int) : PreferenceFragment(), OnSharedPre
             findPreference("gs_navmesh_threads").isEnabled = sharedPreferences.getBoolean("gs_build_navmesh", true)
         }
     }
+
+    companion object {
+        private const val ARG_PAGE_RESOURCE = "page_resource"
+
+        fun newInstance(resource: Int): FragmentGameSettingsPage {
+            return FragmentGameSettingsPage().apply {
+                arguments = Bundle().apply {
+                    putInt(ARG_PAGE_RESOURCE, resource)
+                }
+            }
+        }
+    }
 }
 
 class Game_Mechanics_SettingsActivity : AppCompatActivity() {
@@ -388,7 +410,11 @@ class Game_Mechanics_SettingsActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.settings_toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        fragmentManager.beginTransaction().replace(R.id.settings_frame, FragmentGameSettingsPage(R.xml.gs_game_mechanics)).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettingsPage.newInstance(R.xml.gs_game_mechanics))
+                .commit()
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -411,7 +437,11 @@ class Visuals_SettingsActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.settings_toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        fragmentManager.beginTransaction().replace(R.id.settings_frame, FragmentGameSettingsPage(R.xml.gs_visuals)).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettingsPage.newInstance(R.xml.gs_visuals))
+                .commit()
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -434,7 +464,11 @@ class Shadows_SettingsActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.settings_toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        fragmentManager.beginTransaction().replace(R.id.settings_frame, FragmentGameSettingsPage(R.xml.gs_shadows)).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettingsPage.newInstance(R.xml.gs_shadows))
+                .commit()
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -457,7 +491,11 @@ class Animations_SettingsActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.settings_toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        fragmentManager.beginTransaction().replace(R.id.settings_frame, FragmentGameSettingsPage(R.xml.gs_animations)).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettingsPage.newInstance(R.xml.gs_animations))
+                .commit()
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -480,7 +518,11 @@ class Interface_SettingsActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.settings_toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        fragmentManager.beginTransaction().replace(R.id.settings_frame, FragmentGameSettingsPage(R.xml.gs_interface)).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettingsPage.newInstance(R.xml.gs_interface))
+                .commit()
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -503,7 +545,11 @@ class Bug_Fixes_SettingsActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.settings_toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        fragmentManager.beginTransaction().replace(R.id.settings_frame, FragmentGameSettingsPage(R.xml.gs_bug_fixes)).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettingsPage.newInstance(R.xml.gs_bug_fixes))
+                .commit()
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -526,7 +572,11 @@ class Miscellaneous_SettingsActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.settings_toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        fragmentManager.beginTransaction().replace(R.id.settings_frame, FragmentGameSettingsPage(R.xml.gs_miscellaneous)).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettingsPage.newInstance(R.xml.gs_miscellaneous))
+                .commit()
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -549,7 +599,11 @@ class Engine_SettingsActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.settings_toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        fragmentManager.beginTransaction().replace(R.id.settings_frame, FragmentGameSettingsPage(R.xml.gs_engine)).commit()
+        if (savedInstanceState == null) {
+            fragmentManager.beginTransaction()
+                .replace(R.id.settings_frame, FragmentGameSettingsPage.newInstance(R.xml.gs_engine))
+                .commit()
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

@@ -55,6 +55,7 @@ def requiredOpenMwPayload = [
         file('src/main/res/xml/settings.xml'),
         file('src/main/res/xml/gs_engine.xml'),
         file('src/main/res/values/strings.xml'),
+        file('src/main/res/values/styles.xml'),
 
         file('src/main/jniLibs/arm64-v8a/libopenmw.so'),
         file('src/main/jniLibs/arm64-v8a/libopenal.so'),
@@ -154,20 +155,40 @@ tasks.register('verifyOpenMwPayload') {
                 !launcherMainActivity.contains('"gs_groundcover_point_lighting"') ||
                 !launcherMainActivity.contains('text = "ARM64 \\u2022 v${BuildConfig.VERSION_NAME}"') ||
                 !launcherMainActivity.contains('OpenMW 0.51 Android release runtime:') ||
+                !launcherMainActivity.contains('setContentView(createOpaqueLoadingPanel())') ||
+                !launcherMainActivity.contains('private fun initializeLauncher(savedInstanceState: Bundle?)') ||
+                !launcherMainActivity.contains('private fun isOledLauncherTheme(): Boolean') ||
+                !launcherMainActivity.contains('R.string.action_theme_oled') ||
+                !launcherMainActivity.contains('prefs.getInt(getString(R.string.theme), 0) == 3') ||
                 launcherMainActivity.contains('Gate H5a') ||
                 launcherMainActivity.indexOf('text = "ARM64 \\u2022 v${BuildConfig.VERSION_NAME}"') >
-                    launcherMainActivity.indexOf('"This port by Andreas \\"Andiweli\\" Stürmer\\n"')) {
+                    launcherMainActivity.indexOf('getString(R.string.about_port_info)')) {
             throw new GradleException(
                     'OpenMW 0.51 Android launcher, OMWFX consolidation or About information is incomplete.'
             )
         }
 
+        def launcherStyles = file('src/main/res/values/styles.xml').getText('UTF-8')
+        if (launcherStyles.contains('<item name="android:windowBackground">') ||
+                launcherStyles.contains('<item name="android:colorBackground">') ||
+                launcherStyles.contains('<item name="android:windowIsTranslucent">')) {
+            throw new GradleException(
+                    'OpenMW launcher must keep the original MyTheme/AppCompat DayNight window/background definitions.'
+            )
+        }
+        if (!launcherMainActivity.contains('restoreOriginalLauncherWindowBackground()')) {
+            throw new GradleException(
+                    'OpenMW launcher must restore the original themed window background after the startup loading panel.'
+            )
+        }
+
         def launcherFragmentSettings = file('src/main/java/ui/fragments/FragmentSettings.kt').getText('UTF-8')
         if (!launcherFragmentSettings.contains('prepareControllerTriggerPreference()') ||
-                !launcherFragmentSettings.contains('Custom ($triggerPress press, $triggerRelease release)') ||
-                !launcherFragmentSettings.contains('sharedPref.getString("pref_shadersDir_v2", "") == "modified"')) {
+                !launcherFragmentSettings.contains('R.string.controller_trigger_custom_values') ||
+                !launcherFragmentSettings.contains('sharedPref.getString("pref_shadersDir_v2", "") == "modified"') ||
+                !launcherFragmentSettings.contains('sharedPref.getInt(getString(R.string.theme), 0) == 3')) {
             throw new GradleException(
-                    'OpenMW 0.51 controller-trigger or shader-precision handling is missing.'
+                    'OpenMW 0.51 launcher controller, shader-precision or OLED-theme handling is missing.'
             )
         }
 
@@ -177,7 +198,7 @@ tasks.register('verifyOpenMwPayload') {
         def onScreenControlsIndex = launcherSettingsXml.indexOf('android:key="pref_controls"')
         def hideOnScreenButtonsIndex = launcherSettingsXml.indexOf('android:key="pref_hide_controls"')
         if (!launcherSettingsXml.contains('android:dependency="pref_omw050_controller_menus"') ||
-                !launcherSettingsXml.contains('Use OpenMW 0.51 gamepad-optimized menu navigation') ||
+                !launcherSettingsXml.contains('android:summary="@string/pref_omw050_controller_menus_summary"') ||
                 !launcherSettingsXml.contains('android:summary="@string/pref_nohighp_summary"') ||
                 controllerTooltipsIndex < 0 ||
                 controllerTriggerIndex <= controllerTooltipsIndex ||
@@ -208,6 +229,86 @@ tasks.register('verifyOpenMwPayload') {
             throw new GradleException(
                     'OpenMW 0.51 Medium shader precision explanation is missing.'
             )
+        }
+
+        // Every launcher locale must contain the complete English string-key set.
+        // This prevents newly added launcher text from silently falling back to English.
+        def launcherPreferenceStrings = file('src/main/res/values/launcher_preferences.xml').getText('UTF-8')
+        def extractStringKeys = { String xml ->
+            def keys = [] as Set
+            def matcher = (xml =~ /<string\s+name="([^"]+)"/)
+            matcher.each { match -> keys.add(match[1]) }
+            return keys
+        }
+        def requiredGeneralStringKeys = extractStringKeys(launcherStrings)
+        def requiredPreferenceStringKeys = extractStringKeys(launcherPreferenceStrings)
+        def requiredLocalizedArrays = [
+                'pref_encoding_entries',
+                'gs_factor_strength_into_hand_to_hand_combat_entries',
+                'gs_show_owned_entries',
+                'gs_groundcover_handling_entries',
+                'pref_omw051_controller_trigger_sensitivity_entries',
+                'pref_textureShrinking_entries',
+                'pref_shadersDir_entries',
+                'pref_mouse_mode_entries',
+                'gs_shadow_quality_entries',
+                'gs_shadow_distance_entries'
+        ]
+        def extractArrayItemCounts = { String xml ->
+            def counts = [:]
+            def matcher = (xml =~ /(?s)<string-array\s+name="([^"]+)"[^>]*>(.*?)<\/string-array>/)
+            matcher.each { match ->
+                counts[match[1]] = (match[2] =~ /<item(?:\s[^>]*)?>/).findAll().size()
+            }
+            return counts
+        }
+        def baseArrayItemCounts = extractArrayItemCounts(launcherStrings)
+        def storageChooserBase = new File(
+                project.rootDir,
+                'storagechooser/src/main/res/values/strings.xml'
+        )
+        def storageChooserKeys = storageChooserBase.isFile()
+                ? extractStringKeys(storageChooserBase.getText('UTF-8'))
+                : ([] as Set)
+
+        ['de', 'fr', 'pl', 'ru', 'sv'].each { locale ->
+            def localeDir = file('src/main/res/values-' + locale)
+            def localeGeneralFile = new File(localeDir, 'strings.xml')
+            def localePreferencesFile = new File(localeDir, 'launcher_preferences.xml')
+            if (!localeGeneralFile.isFile() || !localePreferencesFile.isFile()) {
+                throw new GradleException('Launcher localization is incomplete for locale: ' + locale)
+            }
+
+            def localeGeneralText = localeGeneralFile.getText('UTF-8')
+            def localeGeneralKeys = extractStringKeys(localeGeneralText)
+            def localePreferenceKeys = extractStringKeys(localePreferencesFile.getText('UTF-8'))
+            def localeArrayItemCounts = extractArrayItemCounts(localeGeneralText)
+            def missingGeneral = requiredGeneralStringKeys - localeGeneralKeys
+            def missingPreferences = requiredPreferenceStringKeys - localePreferenceKeys
+            def invalidArrays = requiredLocalizedArrays.findAll { arrayName ->
+                !localeArrayItemCounts.containsKey(arrayName) ||
+                        localeArrayItemCounts[arrayName] != baseArrayItemCounts[arrayName]
+            }
+
+            def storageChooserLocaleFile = new File(
+                    project.rootDir,
+                    'storagechooser/src/main/res/values-' + locale + '/strings.xml'
+            )
+            def storageChooserLocaleKeys = storageChooserLocaleFile.isFile()
+                    ? extractStringKeys(storageChooserLocaleFile.getText('UTF-8'))
+                    : ([] as Set)
+            def missingStorageChooser = storageChooserKeys - storageChooserLocaleKeys
+
+            if (!missingGeneral.isEmpty() || !missingPreferences.isEmpty() ||
+                    !invalidArrays.isEmpty() || !missingStorageChooser.isEmpty()) {
+                throw new GradleException(
+                        'Launcher localization is incomplete for ' + locale +
+                        '. Missing general keys: ' + missingGeneral.sort().join(', ') +
+                        '. Missing preference keys: ' + missingPreferences.sort().join(', ') +
+                        '. Missing/invalid arrays: ' + invalidArrays.sort().join(', ') +
+                        '. Missing StorageChooser keys: ' + missingStorageChooser.sort().join(', ')
+                )
+            }
         }
 
         def finalBloom = file('src/main/assets/android_omwfx/gateh_bloom051.omwfx')
@@ -301,12 +402,15 @@ tasks.register('verifyOpenMwPayload') {
                 !finalWetWorld.contains('uniform_float puddle_strength_v35 {\n    default = 0.62;') ||
                 !finalWetWorld.contains('float rainFactor051()') ||
                 !finalWetWorld.contains('float valueNoise051(vec2 p)') ||
+                !finalWetWorld.contains('vec3 reconstructedViewPos051(vec2 uv)') ||
                 !finalWetWorld.contains('vec3 reconstructedWorldNormal051(vec2 uv)') ||
+                !finalWetWorld.contains('vec3 dxForward = pR - p;') ||
+                !finalWetWorld.contains('vec3 nWorld = (omw.invViewMatrix * vec4(nView, 0.0)).xyz;') ||
                 !finalWetWorld.contains('float upFacing = smoothstep(0.30, 0.76, abs(n.z));') ||
                 !finalWetWorld.contains('float puddleMask = smoothstep(0.56, 0.76, puddleField)') ||
                 !finalWetWorld.contains('if (base.a < 0.25)') ||
                 !finalWetWorld.contains('flags = Disable_Interiors, Disable_Underwater;') ||
-                !finalWetWorld.contains('version = "5.0-051-weather-puddles";') ||
+                !finalWetWorld.contains('version = "5.1-051-weather-puddles-mali-safe";') ||
                 finalWetWorld.contains('dFdx(') ||
                 finalWetWorld.contains('dFdy(') ||
                 finalWetWorld.contains('sin(')) {
@@ -358,17 +462,29 @@ tasks.register('verifyOpenMwPayload') {
             )
         }
 
-        // Keep the proven Android GLES2 shadow compatibility baseline active.
+        // Keep the proven Android GLES2 one-map shadow baseline active and
+        // require the quality-dependent PCF receiver used by the launcher. The
+        // bundled asset is intentionally the Medium profile; MainActivity
+        // specializes only the two guarded constants before each game start.
         if (!shadowFragmentShader.contains('OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE') ||
+                !shadowFragmentShader.contains('OPENMW_ANDROID_051_GLES2_QUALITY_PCF') ||
+                !shadowFragmentShader.contains('#define OPENMW_ANDROID_SHADOW_PCF_LEVEL 2') ||
+                !shadowFragmentShader.contains('#define OPENMW_ANDROID_SHADOW_MAP_RESOLUTION 4096.0') ||
+                !shadowFragmentShader.contains('uniform sampler2D shadowTexture@shadow_texture_unit_index;') ||
+                !shadowFragmentShader.contains('OPENMW_ANDROID_051_GLES2_RECEIVER_DEPTH_BIAS') ||
+                !shadowFragmentShader.contains('float receiverDepth = max(shadowXYZ.z - 0.00005, 0.0);') ||
+                !shadowFragmentShader.contains('step(receiverDepth, texture2D(') ||
+                !shadowFragmentShader.contains('pcfShadow * 0.25') ||
+                !shadowFragmentShader.contains('pcfShadow * (1.0 / 9.0)') ||
+                !shadowFragmentShader.contains('pcfShadow * (1.0 / 64.0)') ||
+                !shadowFragmentShader.contains('OPENMW_ANDROID_051_GLES2_TENT_PCF') ||
                 shadowFragmentShader.contains('uniform sampler2DShadow') ||
                 shadowFragmentShader.contains('shadow2DProj(') ||
-                !shadowFragmentShader.contains('uniform sampler2D shadowTexture@shadow_texture_unit_index;') ||
-                !shadowFragmentShader.contains('step(shadowXYZ.z, texture2D(') ||
                 !shadowShader.contains('OPENMW_ANDROID_051_GLES2_NATIVE_SHADOW_CLIPPING') ||
                 shadowShader.contains('gl_Position.z = clamp(gl_Position.z, -gl_Position.w, gl_Position.w);')) {
             throw new GradleException(
-                    'OpenMW 0.51 Android GLES2 shadow payload is incomplete.\n' +
-                    'Re-run tools\\apply-openmw-051-patch12-shadows.ps1 before assembling the APK.'
+                    'OpenMW 0.51 Android GLES2 shadow/quality-PCF payload is incomplete.\n' +
+                    'Restore the final Android shadow receiver before assembling the APK.'
             )
         }
     }

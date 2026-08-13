@@ -56,6 +56,7 @@ import file.utils.CopyFilesFromAssets
 import mods.ModType
 import mods.ModsCollection
 import mods.ModsDatabaseOpenHelper
+import mods.ModsPaths
 import ui.fragments.FragmentSettings
 import permission.PermissionHelper
 import utils.MyApp
@@ -90,6 +91,24 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Draw an opaque loading surface before the launcher hierarchy is inflated.
+        // Together with MyTheme's black starting-window background this prevents
+        // Android from presenting stale launcher/app pixels while MainActivity is
+        // being created. Keep it on-screen for at least one display frame so the
+        // user sees a deterministic "Loading" state before the launcher.
+        window.setBackgroundDrawable(
+            android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK)
+        )
+        setContentView(createOpaqueLoadingPanel())
+        window.decorView.postDelayed({
+            if (!isFinishing && !isDestroyed) {
+                initializeLauncher(savedInstanceState)
+            }
+        }, 34L)
+    }
+
+    private fun initializeLauncher(savedInstanceState: Bundle?) {
         MyApp.app.defaultScaling = determineScaling()
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
@@ -109,20 +128,25 @@ class MainActivity : AppCompatActivity() {
                 prefs.getBoolean("pref_skip_gui", false) &&
                 !bugsnagConsentMissing
 
-        if (skipGuiAutoLaunchPending) {
-            window.decorView.alpha = 0f
-            Log.i(TAG, "Skip GUI: launcher decor hidden before layout presentation.")
-        }
-
         PermissionHelper.getWriteExternalStoragePermission(this@MainActivity)
+
+        // Keep the opaque black Android starting window only for the short
+        // pre-launcher loading phase. Once the launcher hierarchy is installed,
+        // restore the stock themed background unless the explicit OLED launcher
+        // design is selected.
+        val launcherThemePreference = prefs.getInt(getString(R.string.theme), 0)
         setContentView(R.layout.main)
+        if (launcherThemePreference == 3) {
+            applyOledLauncherWindowBackground()
+        } else {
+            restoreOriginalLauncherWindowBackground()
+        }
         migrateObjectPagingMinSizeDefault()
         migrateOpenMw050SettingsPreferences()
         migrateOpenMw051SettingsPreferences()
 
-        val theme = prefs.getInt(getString(R.string.theme), 0)
-        if(theme == 0) AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        else if(theme == 1) AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        if(launcherThemePreference == 0) AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        else if(launcherThemePreference == 1) AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         else AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
 
         fragmentManager.beginTransaction()
@@ -131,6 +155,7 @@ class MainActivity : AppCompatActivity() {
         val launcherToolbar =
             findViewById<androidx.appcompat.widget.Toolbar>(R.id.main_toolbar)
         setSupportActionBar(launcherToolbar)
+        applyLauncherSurfaceTheme(launcherToolbar)
         installUserConfigurationOverflow(launcherToolbar)
 
         val fab = findViewById<FloatingActionButton>(R.id.fab)
@@ -141,11 +166,78 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (skipGuiAutoLaunchPending) {
+            // Preserve the existing no-flash Skip GUI behaviour after the normal
+            // launcher layout has been constructed behind the startup screen.
+            window.decorView.alpha = 0f
             Log.i(
                 TAG,
                 "Skip GUI armed: press/hold Volume Up during startup to show launcher."
             )
             skipGuiHandler.postDelayed(skipGuiAutoLaunchRunnable, 800L)
+        }
+    }
+
+    private fun restoreOriginalLauncherWindowBackground() {
+        // The startup panel deliberately paints the Window black before the launcher exists.
+        // Once R.layout.main is installed, restore the Window background resolved from the
+        // original MyTheme/AppCompat DayNight theme. Do not hard-code a grey here: this is
+        // exactly the background the unmodified launcher inherited from its theme.
+        val value = android.util.TypedValue()
+        if (!theme.resolveAttribute(android.R.attr.windowBackground, value, true)) {
+            window.setBackgroundDrawable(null)
+            return
+        }
+
+        val background = when {
+            value.resourceId != 0 -> resources.getDrawable(value.resourceId, theme)
+            value.type in android.util.TypedValue.TYPE_FIRST_COLOR_INT..android.util.TypedValue.TYPE_LAST_COLOR_INT ->
+                android.graphics.drawable.ColorDrawable(value.data)
+            else -> null
+        }
+        window.setBackgroundDrawable(background)
+    }
+
+    private fun isOledLauncherTheme(): Boolean =
+        prefs.getInt(getString(R.string.theme), 0) == 3
+
+    private fun applyOledLauncherWindowBackground() {
+        val black = android.graphics.Color.BLACK
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(black))
+        window.statusBarColor = black
+        window.navigationBarColor = black
+    }
+
+    private fun applyLauncherSurfaceTheme(toolbar: androidx.appcompat.widget.Toolbar) {
+        if (!isOledLauncherTheme()) {
+            return
+        }
+
+        val black = android.graphics.Color.BLACK
+        applyOledLauncherWindowBackground()
+        findViewById<android.view.View>(R.id.drawer_layout)?.setBackgroundColor(black)
+        findViewById<android.view.View>(R.id.content_frame)?.setBackgroundColor(black)
+        toolbar.setBackgroundColor(black)
+    }
+
+    private fun createOpaqueLoadingPanel(): android.view.View {
+        val density = resources.displayMetrics.density
+        val spacing = (18f * density + 0.5f).toInt()
+        val horizontalPadding = (28f * density + 0.5f).toInt()
+
+        return android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+            setPadding(horizontalPadding, spacing, horizontalPadding, spacing)
+            setBackgroundColor(android.graphics.Color.BLACK)
+
+            addView(android.widget.ProgressBar(this@MainActivity))
+            addView(android.widget.TextView(this@MainActivity).apply {
+                text = getString(R.string.launch_preparing)
+                setTextColor(android.graphics.Color.WHITE)
+                textSize = 16f
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, spacing, 0, 0)
+            })
         }
     }
 
@@ -314,18 +406,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Second, check if user has at least one mod enabled
-	var dataFilesList = ArrayList<String>()
-	dataFilesList.add(inst.findDataFiles())
-
-	File(inst.findDataFiles().dropLast(10)).listFiles().forEach {
-	    if (!it.isFile())
-	        dataFilesList.add(inst.findDataFiles().dropLast(10) + it.getName())
-	}
-
-        val plugins = ModsCollection(ModType.Plugin, dataFilesList,
-            ModsDatabaseOpenHelper.getInstance(this))
-        if (plugins.mods.count { it.enabled } == 0) {
+        // Second, check if user has at least one mod enabled. Only scan the
+        // base Data Files directory and additional data directories enabled by
+        // the user; disabled directories must not leak plugins into the launch.
+        val db = ModsDatabaseOpenHelper.getInstance(this)
+        val allDataFilesList = ModsPaths.allDataDirectories(this)
+        val activeDataFilesList = ModsPaths.activeDataDirectories(this, db)
+        val plugins = ModsCollection(ModType.Plugin, allDataFilesList, db)
+        if (plugins.mods.count { it.enabled && ModsPaths.fileExistsIn(it.filename, activeDataFilesList) } == 0) {
             // No mods enabled, show a warning
             revealLauncherAfterSkipGui("content selection needs confirmation")
             AlertDialog.Builder(this)
@@ -348,9 +436,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun deleteRecursive(fileOrDirectory: File) {
-        if (fileOrDirectory.isDirectory)
-            for (child in fileOrDirectory.listFiles())
+        if (fileOrDirectory.isDirectory) {
+            fileOrDirectory.listFiles()?.forEach { child ->
                 deleteRecursive(child)
+            }
+        }
 
         fileOrDirectory.delete()
     }
@@ -444,45 +534,45 @@ class MainActivity : AppCompatActivity() {
         }
 
         val db = ModsDatabaseOpenHelper.getInstance(this)
+        val allDataFilesList = ModsPaths.allDataDirectories(this)
+        val activeDataFilesList = ModsPaths.activeDataDirectories(this, db)
 
-	var dataFilesList = ArrayList<String>()
-	var dataDirsPath = ArrayList<String>()
-	dataFilesList.add(GameInstaller.getDataFiles(this))
-        dataDirsPath.add(GameInstaller.getDataFiles(this).dropLast(10))
-
-	File(GameInstaller.getDataFiles(this).dropLast(10)).listFiles().forEach {
-	    if (!it.isFile())
-	        dataFilesList.add(GameInstaller.getDataFiles(this).dropLast(10) + it.getName())
-	}
-
-        val resources = ModsCollection(ModType.Resource, dataFilesList, db)
-        val dirs = ModsCollection(ModType.Dir, dataDirsPath, db)
-        val plugins = ModsCollection(ModType.Plugin, dataFilesList, db)
-        val groundcovers = ModsCollection(ModType.Groundcover, dataFilesList, db)
+        // Keep the database synchronized against every present directory so
+        // disabled directories retain their enable/load-order state. Runtime
+        // output below is restricted to active data directories only.
+        val resources = ModsCollection(ModType.Resource, allDataFilesList, db)
+        val plugins = ModsCollection(ModType.Plugin, allDataFilesList, db)
+        val groundcovers = ModsCollection(ModType.Groundcover, allDataFilesList, db)
 
         try {
-            // generate final output.cfg
-            var output = base + "\n" + fallback + "\n"
+            // Generate final openmw.cfg without repeatedly reallocating a growing String.
+            val output = buildString {
+                append(base)
+                append('\n')
+                append(fallback)
+                append('\n')
 
-            // output resources
-            resources.mods
-                .filter { it.enabled }
-                .forEach { output += "fallback-archive=${it.filename}\n" }
+                resources.mods
+                    .filter { it.enabled && ModsPaths.fileExistsIn(it.filename, activeDataFilesList) }
+                    .forEach { append("fallback-archive=${it.filename}\n") }
 
-            // output data dirs
-            dirs.mods
-                .filter { it.enabled }
-                .forEach { output += "data=" + '"' + GameInstaller.getDataFiles(this).dropLast(10) + it.filename + '"' + "\n" }
+                // The base Data Files path must be first. startGame() later
+                // rewrites the first data= line for compatibility; keeping the
+                // base path first prevents that write from replacing an enabled
+                // additional data directory.
+                activeDataFilesList
+                    .map(::File)
+                    .filter { it.isDirectory }
+                    .forEach { append("data=\"${it.absolutePath}\"\n") }
 
-            // output plugins
-            plugins.mods
-                .filter { it.enabled }
-                .forEach { output += "content=${it.filename}\n" }
+                plugins.mods
+                    .filter { it.enabled && ModsPaths.fileExistsIn(it.filename, activeDataFilesList) }
+                    .forEach { append("content=${it.filename}\n") }
 
-            // output groundcovers
-            groundcovers.mods
-                .filter { it.enabled }
-                .forEach { output += "groundcover=${it.filename}\n" }
+                groundcovers.mods
+                    .filter { it.enabled && ModsPaths.fileExistsIn(it.filename, activeDataFilesList) }
+                    .forEach { append("groundcover=${it.filename}\n") }
+            }
 
             // Write only the real launcher configuration. Keep unrelated
             // legacy side writes out of this code path; on ChromeOS a failed
@@ -666,6 +756,7 @@ class MainActivity : AppCompatActivity() {
                 // sampler2D values and compared manually; the casting shader also
                 // uses normal GLES2 near/far clipping instead of emulating GL_DEPTH_CLAMP.
                 shadowFragmentText.contains("OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE") &&
+                shadowFragmentText.contains("OPENMW_ANDROID_051_GLES2_QUALITY_PCF") &&
                 !shadowFragmentText.contains("uniform sampler2DShadow") &&
                 !shadowFragmentText.contains("shadow2DProj(") &&
                 shadowShader.readText().contains("OPENMW_ANDROID_051_GLES2_NATIVE_SHADOW_CLIPPING")
@@ -879,14 +970,28 @@ class MainActivity : AppCompatActivity() {
             val userTarget = File(Constants.USER_FILE_STORAGE + "/resources/", relativePath)
 
             privateTarget.parentFile?.mkdirs()
-            assets.open(assetPath).use { input ->
-                privateTarget.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-
             userTarget.parentFile?.mkdirs()
-            privateTarget.copyTo(userTarget, overwrite = true)
+
+            if (relativePath == "shaders/compatibility/shadows_fragment.glsl") {
+                // The bundled receiver is a valid Medium-quality shader. Before
+                // each launch specialize its compile-time GLES2 PCF constants
+                // to the currently selected shadow quality. This keeps the
+                // stable one-map Android path while avoiding runtime loops,
+                // textureSize() (not available on GLES2) or native uniforms.
+                val bundledShadowShader = assets.open(assetPath).bufferedReader(Charsets.UTF_8).use {
+                    it.readText()
+                }
+                val specializedShadowShader = specializeAndroidShadowShader(bundledShadowShader)
+                privateTarget.writeText(specializedShadowShader, Charsets.UTF_8)
+                userTarget.writeText(specializedShadowShader, Charsets.UTF_8)
+            } else {
+                assets.open(assetPath).use { input ->
+                    privateTarget.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                privateTarget.copyTo(userTarget, overwrite = true)
+            }
         }
 
         // Publish only the device-proven OpenMW 0.51 Android OMWFX stack.
@@ -1090,7 +1195,7 @@ class MainActivity : AppCompatActivity() {
             !wetWorldText.contains("float puddleMask = smoothstep(0.56, 0.76, puddleField)") ||
             !wetWorldText.contains("if (base.a < 0.25)") ||
             !wetWorldText.contains("flags = Disable_Interiors, Disable_Underwater;") ||
-            !wetWorldText.contains("version = \"5.0-051-weather-puddles\";") ||
+            !wetWorldText.contains("version = \"5.1-051-weather-puddles-mali-safe\";") ||
             wetWorldText.contains("dFdx(") ||
             wetWorldText.contains("dFdy(") ||
             wetWorldText.contains("sin(") ||
@@ -1163,12 +1268,22 @@ class MainActivity : AppCompatActivity() {
             throw IOException("Runtime OpenMW 0.51 compatibility shaders still contain GL4ES-hostile uniform initializers")
         }
 
+        val shadowQualityProfile = selectedAndroidShadowQualityProfile()
         if (!shadowReceiverText.contains("OPENMW_ANDROID_051_GLES2_MANUAL_SHADOW_COMPARE") ||
+            !shadowReceiverText.contains("OPENMW_ANDROID_051_GLES2_QUALITY_PCF") ||
+            !shadowReceiverText.contains("#define OPENMW_ANDROID_SHADOW_PCF_LEVEL ${shadowQualityProfile.pcfLevel}") ||
+            !shadowReceiverText.contains("#define OPENMW_ANDROID_SHADOW_MAP_RESOLUTION ${shadowQualityProfile.shadowMapResolution}.0") ||
+            !shadowReceiverText.contains("pcfShadow * 0.25") ||
+            !shadowReceiverText.contains("pcfShadow * (1.0 / 9.0)") ||
+            !shadowReceiverText.contains("pcfShadow * (1.0 / 64.0)") ||
+            !shadowReceiverText.contains("OPENMW_ANDROID_051_GLES2_TENT_PCF") ||
+            !shadowReceiverText.contains("OPENMW_ANDROID_051_GLES2_RECEIVER_DEPTH_BIAS") ||
+            !shadowReceiverText.contains("float receiverDepth = max(shadowXYZ.z - 0.00005, 0.0);") ||
             shadowReceiverText.contains("uniform sampler2DShadow") ||
             shadowReceiverText.contains("shadow2DProj(") ||
             !shadowCastingText.contains("OPENMW_ANDROID_051_GLES2_NATIVE_SHADOW_CLIPPING") ||
             shadowCastingText.contains("gl_Position.z = clamp(gl_Position.z, -gl_Position.w, gl_Position.w);")) {
-            throw IOException("Runtime OpenMW 0.51 Android GLES2 shadow compatibility shaders are missing")
+            throw IOException("Runtime OpenMW 0.51 Android GLES2 shadow compatibility/PCF shader is missing or mismatched")
         }
 
         if (coreVertexText.contains("@link") ||
@@ -1295,25 +1410,74 @@ class MainActivity : AppCompatActivity() {
         file.writeText(lines.joinToString("\n").trimEnd() + "\n")
     }
 
+    private data class AndroidShadowQualityProfile(
+        val preferenceValue: String,
+        val shadowMapResolution: String,
+        val pcfLevel: Int,
+        val pcfSamples: Int,
+        val normalOffsetDistance: String
+    )
+
+    /**
+     * Android deliberately keeps exactly one orthographic shadow map because
+     * multiple maps/cascades caused moving dark regions on the GLES2/GL4ES
+     * backend. Quality therefore scales both map resolution and a compile-time
+     * PCF kernel in the receiver shader.
+     */
+    private fun selectedAndroidShadowQualityProfile(): AndroidShadowQualityProfile {
+        return when (prefs.getString("gs_shadow_quality", "medium") ?: "medium") {
+            "low" -> AndroidShadowQualityProfile("low", "2048", 1, 4, "1.25")
+            "high" -> AndroidShadowQualityProfile("high", "4096", 3, 16, "1.75")
+            else -> AndroidShadowQualityProfile("medium", "4096", 2, 9, "1.50")
+        }
+    }
+
+    /**
+     * Rewrites only two guarded compile-time constants in the bundled receiver.
+     * The rest of the shader stays byte-for-byte identical. A hard failure is
+     * preferable to silently launching with mismatched resolution/PCF offsets.
+     */
+    private fun specializeAndroidShadowShader(sourceText: String): String {
+        if (!sourceText.contains("OPENMW_ANDROID_051_GLES2_QUALITY_PCF")) {
+            throw IOException("Bundled Android shadow shader has no quality-PCF marker")
+        }
+
+        val levelPattern = Regex(
+            "(?m)^#define\\s+OPENMW_ANDROID_SHADOW_PCF_LEVEL\\s+\\d+\\s*$"
+        )
+        val resolutionPattern = Regex(
+            "(?m)^#define\\s+OPENMW_ANDROID_SHADOW_MAP_RESOLUTION\\s+\\d+(?:\\.\\d+)?\\s*$"
+        )
+        if (levelPattern.findAll(sourceText).count() != 1 ||
+            resolutionPattern.findAll(sourceText).count() != 1) {
+            throw IOException("Bundled Android shadow shader PCF constants are missing or duplicated")
+        }
+
+        val profile = selectedAndroidShadowQualityProfile()
+        return sourceText
+            .replace(levelPattern, "#define OPENMW_ANDROID_SHADOW_PCF_LEVEL ${profile.pcfLevel}")
+            .replace(
+                resolutionPattern,
+                "#define OPENMW_ANDROID_SHADOW_MAP_RESOLUTION ${profile.shadowMapResolution}.0"
+            )
+    }
+
     /**
      * Applies the launcher Shadow settings directly to OpenMW's user settings.
      *
      * OpenMW 0.51 provides the complete shadow-mapping implementation.
      * On Android/GL4ES, Quality keeps one stable shadow map and controls its
-     * resolution only. Distance controls the maximum shadow range. A 0.75 fade start gives the outer 25 percent of
+     * resolution plus the GLES2 PCF kernel. Distance controls the maximum shadow range. A 0.75 fade start gives the outer 25 percent of
      * the selected range to smoothly fade shadows out (and back in when approaching).
      */
     private fun applyShadowSettings() {
-        val quality = prefs.getString("gs_shadow_quality", "medium") ?: "medium"
+        val qualityProfile = selectedAndroidShadowQualityProfile()
         // Android/GL4ES: keep a single shadow map for every quality tier.
         // Multi-map cascades (2+ maps) produce moving dark/flickering regions on
-        // GLES2 devices, while one map is stable. Quality therefore controls
-        // resolution only on this Android port.
-        val (shadowMapCount, shadowMapResolution) = when (quality) {
-            "low" -> "1" to "1024"
-            "high" -> "1" to "4096"
-            else -> "1" to "2048"
-        }
+        // GLES2 devices. Quality scales resolution plus the launcher-specialized
+        // PCF receiver kernel instead: Low=4 taps, Medium=9 taps, High=16 taps.
+        val shadowMapCount = "1"
+        val shadowMapResolution = qualityProfile.shadowMapResolution
 
         val maximumShadowDistance = when (prefs.getString("gs_shadow_distance", "medium")) {
             "low" -> "2048"
@@ -1335,15 +1499,26 @@ class MainActivity : AppCompatActivity() {
                 "number of shadow maps" to shadowMapCount,
                 "shadow map resolution" to shadowMapResolution,
                 "maximum shadow map distance" to maximumShadowDistance,
-                "shadow fade start" to "0.75"
+                "shadow fade start" to "0.75",
+                // OpenMW's normal-offset mechanism is the least intrusive way to
+                // suppress receiver self-shadowing (shadow acne). The wider PCF
+                // kernel used at higher quality samples a larger terrain slope,
+                // so scale the offset modestly with the selected quality. Keep
+                // polygon offset at the upstream 0.51 defaults to avoid excess
+                // Peter Panning on actors and small objects.
+                "polygon offset factor" to "1.1",
+                "polygon offset units" to "4.0",
+                "normal offset distance" to qualityProfile.normalOffsetDistance,
+                "use front face culling" to "false"
             )
         )
 
         Log.i(
             TAG,
             "Applied OpenMW 0.51 Android shadows: enabled=${prefs.getBoolean("gs_enable_shadows", false)}, " +
-                "quality=$quality (${shadowMapCount}x${shadowMapResolution}), " +
-                "distance=$maximumShadowDistance, fadeStart=0.75"
+                "quality=${qualityProfile.preferenceValue} (${shadowMapCount}x${shadowMapResolution}, " +
+                "pcf=${qualityProfile.pcfSamples} taps), distance=$maximumShadowDistance, fadeStart=0.75, " +
+                "normalOffset=${qualityProfile.normalOffsetDistance}"
         )
     }
 
@@ -1761,16 +1936,28 @@ class MainActivity : AppCompatActivity() {
             scaling = MyApp.app.defaultScaling
         }
 
+        // Keep the opaque "Loading" screen exclusive to application startup.
+        // When the user starts the game from the launcher, retain the launcher's
+        // long-standing compact preparation dialog instead of covering the whole
+        // screen a second time. Skip-GUI stays dialog-free as before.
         val dialog = if (skipGuiDirectLaunchActive) {
             null
         } else {
-            ProgressDialog.show(this, "", "Preparing for launch...", true)
+            ProgressDialog.show(
+                this,
+                "",
+                getString(R.string.launch_preparing_game),
+                true,
+                false
+            )
         }
 
-        val activity = this
-
-        // hide the controls so that ScreenResolutionHelper can get the right resolution
+        // Hide Android system chrome after the dialog has been created so screen
+        // resolution probing sees the actual game viewport, matching the original
+        // launcher sequence.
         hideAndroidControls(this)
+
+        val activity = this
 
         val th = Thread {
             try {
@@ -1988,8 +2175,8 @@ class MainActivity : AppCompatActivity() {
                     revealLauncherAfterSkipGui("launch preparation failed")
                     dialog?.dismiss()
                     AlertDialog.Builder(activity)
-                        .setTitle("OpenMW launch failed")
-                        .setMessage(e.message ?: "Unknown error while preparing OpenMW.")
+                        .setTitle(R.string.launch_failed_title)
+                        .setMessage(e.message ?: getString(R.string.launch_failed_unknown))
                         .setPositiveButton(android.R.string.ok) { _, _ -> }
                         .show()
                 }
@@ -2042,7 +2229,7 @@ class MainActivity : AppCompatActivity() {
             text = "\u22ee"
             textSize = 29f
             gravity = android.view.Gravity.CENTER
-            contentDescription = "User Configuration"
+            contentDescription = getString(R.string.user_configuration)
             isClickable = true
             isFocusable = true
             setTextColor(
@@ -2106,18 +2293,31 @@ class MainActivity : AppCompatActivity() {
         title: String,
         entries: List<Pair<String, () -> Unit>>
     ) {
-        val backgroundColor = launcherThemeColor(
-            android.R.attr.colorBackground,
-            android.graphics.Color.WHITE
-        )
-        val primaryColor = launcherThemeColor(
-            android.R.attr.textColorPrimary,
+        val oledTheme = isOledLauncherTheme()
+        val backgroundColor = if (oledTheme) {
             android.graphics.Color.BLACK
-        )
-        val secondaryColor = launcherThemeColor(
-            android.R.attr.textColorSecondary,
-            primaryColor
-        )
+        } else {
+            launcherThemeColor(
+                android.R.attr.colorBackground,
+                android.graphics.Color.WHITE
+            )
+        }
+        val primaryColor = if (oledTheme) {
+            android.graphics.Color.WHITE
+        } else {
+            launcherThemeColor(
+                android.R.attr.textColorPrimary,
+                android.graphics.Color.BLACK
+            )
+        }
+        val secondaryColor = if (oledTheme) {
+            android.graphics.Color.rgb(176, 176, 176)
+        } else {
+            launcherThemeColor(
+                android.R.attr.textColorSecondary,
+                primaryColor
+            )
+        }
 
         val container = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
@@ -2202,7 +2402,7 @@ class MainActivity : AppCompatActivity() {
     private fun showUserConfigurationPopup(anchor: android.view.View) {
         val entries = mutableListOf<Pair<String, () -> Unit>>()
 
-        entries += "Reset user configuration" to {
+        entries += getString(R.string.action_reset_user_config) to {
             removeUserConfig()
             android.widget.Toast.makeText(
                 this,
@@ -2211,7 +2411,7 @@ class MainActivity : AppCompatActivity() {
             ).show()
         }
 
-        entries += "Reset user resources" to {
+        entries += getString(R.string.action_reset_user_resources) to {
             removeStaticFiles()
             removeResourceFiles()
             android.widget.Toast.makeText(
@@ -2221,37 +2421,46 @@ class MainActivity : AppCompatActivity() {
             ).show()
         }
 
-        entries += "Theme \u203a" to {
+        entries += getString(R.string.action_theme_submenu) to {
             showThemePopup(anchor)
         }
 
-        entries += "About" to {
+        entries += getString(R.string.action_about) to {
             showAboutDialog()
         }
 
         if (MyApp.haveBugsnagApiKey) {
-            entries += "Crash reporting" to {
+            entries += getString(R.string.action_bugsnag_consent) to {
                 askBugsnagConsent()
             }
         }
 
-        showLauncherPopup(anchor, "User Configuration", entries)
+        showLauncherPopup(anchor, getString(R.string.user_configuration), entries)
     }
 
     private fun setLauncherTheme(
         preferenceValue: Int,
         nightMode: Int,
-        displayName: String
+        displayNameRes: Int
     ) {
+        val previousPreference = prefs.getInt(getString(R.string.theme), 0)
         prefs.edit()
             .putInt(getString(R.string.theme), preferenceValue)
             .apply()
 
-        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(nightMode)
+        if (previousPreference != preferenceValue) {
+            if (androidx.appcompat.app.AppCompatDelegate.getDefaultNightMode() == nightMode) {
+                // Dark and Black/OLED both use MODE_NIGHT_YES, so switching
+                // between them otherwise would not recreate the launcher.
+                recreate()
+            } else {
+                androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(nightMode)
+            }
+        }
 
         android.widget.Toast.makeText(
             this,
-            "Theme set to $displayName",
+            getString(R.string.theme_set_to, getString(displayNameRes)),
             android.widget.Toast.LENGTH_SHORT
         ).show()
     }
@@ -2259,27 +2468,34 @@ class MainActivity : AppCompatActivity() {
     private fun showThemePopup(anchor: android.view.View) {
         showLauncherPopup(
             anchor,
-            "Theme",
+            getString(R.string.action_theme),
             listOf(
-                "System" to {
+                getString(R.string.action_theme_system) to {
                     setLauncherTheme(
                         0,
                         androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
-                        "system"
+                        R.string.action_theme_system
                     )
                 },
-                "Light" to {
+                getString(R.string.action_theme_light) to {
                     setLauncherTheme(
                         1,
                         androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO,
-                        "light"
+                        R.string.action_theme_light
                     )
                 },
-                "Dark" to {
+                getString(R.string.action_theme_dark) to {
                     setLauncherTheme(
                         2,
                         androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES,
-                        "dark"
+                        R.string.action_theme_dark
+                    )
+                },
+                getString(R.string.action_theme_oled) to {
+                    setLauncherTheme(
+                        3,
+                        androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES,
+                        R.string.action_theme_oled
                     )
                 }
             )
@@ -2308,7 +2524,7 @@ class MainActivity : AppCompatActivity() {
             val cleaned = body.joinToString("\n").trim()
             if (cleaned.isNotEmpty()) {
                 sections += AboutLicenseSection(
-                    title ?: "Third-party notices",
+                    title ?: getString(R.string.third_party_notices),
                     cleaned
                 )
             }
@@ -2354,7 +2570,7 @@ class MainActivity : AppCompatActivity() {
         if (sections.isEmpty() && normalized.isNotBlank()) {
             return listOf(
                 AboutLicenseSection(
-                    "Third-party notices",
+                    getString(R.string.third_party_notices),
                     normalized.trim()
                 )
             )
@@ -2408,10 +2624,7 @@ class MainActivity : AppCompatActivity() {
         content.addView(versionInfo)
 
         val portInfo = android.widget.TextView(this).apply {
-            text =
-                "This port by Andreas \"Andiweli\" Stürmer\n" +
-                "Based on a port of CaveBros\n" +
-                "OpenMW by the OpenMW Team since 2008"
+            text = getString(R.string.about_port_info)
             textSize = 16f
             gravity = android.view.Gravity.START
             textAlignment = android.view.View.TEXT_ALIGNMENT_VIEW_START
@@ -2506,7 +2719,7 @@ class MainActivity : AppCompatActivity() {
 
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
 
-                Toast.makeText(this, "Theme set to system", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.theme_set_to, getString(R.string.action_theme_system)), Toast.LENGTH_SHORT).show()
                 true
             }
 
@@ -2518,19 +2731,25 @@ class MainActivity : AppCompatActivity() {
 
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
 
-                Toast.makeText(this, "Theme set to light", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.theme_set_to, getString(R.string.action_theme_light)), Toast.LENGTH_SHORT).show()
                 true
             }
 
             R.id.action_theme_dark -> {
-                with (prefs.edit()) {
-                    putInt(getString(R.string.theme), 2)
-                    apply()
-                }
+                setLauncherTheme(
+                    2,
+                    AppCompatDelegate.MODE_NIGHT_YES,
+                    R.string.action_theme_dark
+                )
+                true
+            }
 
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-
-                Toast.makeText(this, "Theme set to dark", Toast.LENGTH_SHORT).show()
+            R.id.action_theme_oled -> {
+                setLauncherTheme(
+                    3,
+                    AppCompatDelegate.MODE_NIGHT_YES,
+                    R.string.action_theme_oled
+                )
                 true
             }
 
