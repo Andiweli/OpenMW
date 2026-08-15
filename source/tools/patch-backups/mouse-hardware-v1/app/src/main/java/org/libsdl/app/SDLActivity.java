@@ -1780,22 +1780,6 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     private int fixedWidth = 0;
     private int fixedHeight = 0;
 
-    // OPENMW_CHROMEOS_GAMEPLAY_MOUSE_V11
-    // OPENMW_CHROMEOS_GAMEPLAY_MOUSE_V12_ACCEL
-    // Pointer capture bypasses ChromeOS pointer ballistics. Keep the proven v1.1
-    // 2.0x low-speed gain exactly intact, then add only a very gentle speed-dependent
-    // boost for larger raw samples. X/Y share one gain so direction is preserved.
-    private static final float CHROMEOS_GAMEPLAY_MOUSE_GAIN_BASE = 2.0f;
-    private static final float CHROMEOS_GAMEPLAY_MOUSE_GAIN_MID = 2.2f;
-    private static final float CHROMEOS_GAMEPLAY_MOUSE_GAIN_MAX = 2.5f;
-    private static final float CHROMEOS_GAMEPLAY_MOUSE_ACCEL_START = 2.0f;
-    private static final float CHROMEOS_GAMEPLAY_MOUSE_ACCEL_MID = 8.0f;
-    private static final float CHROMEOS_GAMEPLAY_MOUSE_ACCEL_FULL = 24.0f;
-    private float mChromeOsCapturedResidualX = 0.0f;
-    private float mChromeOsCapturedResidualY = 0.0f;
-    private int mChromeOsMouseDiagnosticSamples = 0;
-
-
     // Startup
     public SDLSurface(Context context) {
         super(context);
@@ -2085,16 +2069,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
             x = motionListener.getEventX(event);
             y = motionListener.getEventY(event);
 
-            boolean relativeMouse = motionListener.inRelativeMode();
-            if (!relativeMouse && SDLActivity.isChromebook()) {
-                // OPENMW_CHROMEOS_NATIVE_MOUSE_V1
-                // The OS cursor moves in host View coordinates. Map only absolute GUI
-                // coordinates to OpenMW's logical render size; never scale raw deltas.
-                x = SDLActivity.scaleAbsoluteMouseX(x);
-                y = SDLActivity.scaleAbsoluteMouseY(y);
-            }
-
-            SDLActivity.onNativeMouse(mouseButton, action, x, y, relativeMouse);
+            SDLActivity.onNativeMouse(mouseButton, action, x, y, motionListener.inRelativeMode());
         } else {
             switch(action) {
                 case MotionEvent.ACTION_MOVE:
@@ -2222,115 +2197,6 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     }
 
     // Captured pointer events for API 26.
-    private float getChromeOsCapturedDelta(MotionEvent event, int axis, int historyIndex)
-    {
-        float relative;
-        if (historyIndex >= 0) {
-            relative = event.getHistoricalAxisValue(axis, 0, historyIndex);
-        } else {
-            relative = event.getAxisValue(axis, 0);
-        }
-
-        if (relative != 0.0f) {
-            return relative;
-        }
-
-        // Older/ARC implementations may expose captured mouse deltas through X/Y.
-        if (axis == MotionEvent.AXIS_RELATIVE_X) {
-            return historyIndex >= 0 ? event.getHistoricalX(0, historyIndex) : event.getX(0);
-        }
-        return historyIndex >= 0 ? event.getHistoricalY(0, historyIndex) : event.getY(0);
-    }
-
-    private int roundCapturedMouseSymmetric(float value)
-    {
-        return value >= 0.0f
-                ? (int)Math.floor(value + 0.5f)
-                : (int)Math.ceil(value - 0.5f);
-    }
-
-    private float smoothChromeOsMouseGain(float t)
-    {
-        t = Math.max(0.0f, Math.min(1.0f, t));
-        return t * t * (3.0f - 2.0f * t);
-    }
-
-    private float getChromeOsGameplayMouseGain(float rawX, float rawY)
-    {
-        float magnitude = (float)Math.hypot(rawX, rawY);
-
-        if (magnitude <= CHROMEOS_GAMEPLAY_MOUSE_ACCEL_START) {
-            return CHROMEOS_GAMEPLAY_MOUSE_GAIN_BASE;
-        }
-
-        if (magnitude < CHROMEOS_GAMEPLAY_MOUSE_ACCEL_MID) {
-            float t = (magnitude - CHROMEOS_GAMEPLAY_MOUSE_ACCEL_START)
-                    / (CHROMEOS_GAMEPLAY_MOUSE_ACCEL_MID - CHROMEOS_GAMEPLAY_MOUSE_ACCEL_START);
-            t = smoothChromeOsMouseGain(t);
-            return CHROMEOS_GAMEPLAY_MOUSE_GAIN_BASE
-                    + (CHROMEOS_GAMEPLAY_MOUSE_GAIN_MID - CHROMEOS_GAMEPLAY_MOUSE_GAIN_BASE) * t;
-        }
-
-        if (magnitude < CHROMEOS_GAMEPLAY_MOUSE_ACCEL_FULL) {
-            float t = (magnitude - CHROMEOS_GAMEPLAY_MOUSE_ACCEL_MID)
-                    / (CHROMEOS_GAMEPLAY_MOUSE_ACCEL_FULL - CHROMEOS_GAMEPLAY_MOUSE_ACCEL_MID);
-            t = smoothChromeOsMouseGain(t);
-            return CHROMEOS_GAMEPLAY_MOUSE_GAIN_MID
-                    + (CHROMEOS_GAMEPLAY_MOUSE_GAIN_MAX - CHROMEOS_GAMEPLAY_MOUSE_GAIN_MID) * t;
-        }
-
-        return CHROMEOS_GAMEPLAY_MOUSE_GAIN_MAX;
-    }
-
-    private void dispatchChromeOsCapturedMouseSample(MotionEvent event, int action, int historyIndex)
-    {
-        float rawX = getChromeOsCapturedDelta(event, MotionEvent.AXIS_RELATIVE_X, historyIndex);
-        float rawY = getChromeOsCapturedDelta(event, MotionEvent.AXIS_RELATIVE_Y, historyIndex);
-
-        float gameplayGain = getChromeOsGameplayMouseGain(rawX, rawY);
-        mChromeOsCapturedResidualX += rawX * gameplayGain;
-        mChromeOsCapturedResidualY += rawY * gameplayGain;
-
-        int wholeX = roundCapturedMouseSymmetric(mChromeOsCapturedResidualX);
-        int wholeY = roundCapturedMouseSymmetric(mChromeOsCapturedResidualY);
-
-        mChromeOsCapturedResidualX -= wholeX;
-        mChromeOsCapturedResidualY -= wholeY;
-
-        if (SDLActivity.isChromebook() && mChromeOsMouseDiagnosticSamples < 12
-                && (rawX != 0.0f || rawY != 0.0f)) {
-            Log.i("OpenMW-Mouse",
-                    "captured raw=" + rawX + "," + rawY
-                    + " gain=" + gameplayGain
-                    + " out=" + wholeX + "," + wholeY
-                    + " history=" + historyIndex);
-            mChromeOsMouseDiagnosticSamples++;
-        }
-
-        if (wholeX != 0 || wholeY != 0) {
-            SDLActivity.onNativeMouse(0, action, wholeX, wholeY, true);
-        }
-    }
-
-    @Override
-    public void onPointerCaptureChange(boolean hasCapture)
-    {
-        super.onPointerCaptureChange(hasCapture);
-
-        // Never carry a fractional remainder across GUI <-> gameplay transitions.
-        mChromeOsCapturedResidualX = 0.0f;
-        mChromeOsCapturedResidualY = 0.0f;
-        mChromeOsMouseDiagnosticSamples = 0;
-
-        if (SDLActivity.isChromebook()) {
-            Log.i("OpenMW-Mouse", "pointerCapture=" + hasCapture
-                    + " gameplayGain=" + CHROMEOS_GAMEPLAY_MOUSE_GAIN_BASE
-                    + ".." + CHROMEOS_GAMEPLAY_MOUSE_GAIN_MAX);
-        }
-    }
-
-    // OPENMW_CHROMEOS_NATIVE_MOUSE_V1
-    // OPENMW_CHROMEOS_GAMEPLAY_MOUSE_V11
     public boolean onCapturedPointerEvent(MotionEvent event)
     {
         int action = event.getActionMasked();
@@ -2345,19 +2211,9 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
             case MotionEvent.ACTION_HOVER_MOVE:
             case MotionEvent.ACTION_MOVE:
-                if (SDLActivity.isChromebook()) {
-                    // AXIS_RELATIVE_X/Y values are not accumulated by Android when
-                    // MotionEvents are batched. Process every historical sample first.
-                    for (int historyIndex = 0; historyIndex < event.getHistorySize(); historyIndex++) {
-                        dispatchChromeOsCapturedMouseSample(event, action, historyIndex);
-                    }
-                    dispatchChromeOsCapturedMouseSample(event, action, -1);
-                } else {
-                    // Keep the stock SDL Android path unchanged on non-Chromebook devices.
-                    x = event.getX(0);
-                    y = event.getY(0);
-                    SDLActivity.onNativeMouse(0, action, x, y, true);
-                }
+                x = event.getX(0);
+                y = event.getY(0);
+                SDLActivity.onNativeMouse(0, action, x, y, true);
                 return true;
 
             case MotionEvent.ACTION_BUTTON_PRESS:
@@ -2371,16 +2227,11 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                     action = MotionEvent.ACTION_UP;
                 }
 
+                x = event.getX(0);
+                y = event.getY(0);
                 int button = event.getButtonState();
 
-                if (SDLActivity.isChromebook()) {
-                    // Button transitions must not inject an additional camera delta.
-                    SDLActivity.onNativeMouse(button, action, 0.0f, 0.0f, true);
-                } else {
-                    x = event.getX(0);
-                    y = event.getY(0);
-                    SDLActivity.onNativeMouse(button, action, x, y, true);
-                }
+                SDLActivity.onNativeMouse(button, action, x, y, true);
                 return true;
         }
 

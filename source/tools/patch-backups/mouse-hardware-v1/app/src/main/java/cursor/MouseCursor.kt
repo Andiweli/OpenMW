@@ -20,7 +20,6 @@
 package cursor
 
 import android.content.Context
-import android.os.Build
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Choreographer
@@ -75,8 +74,6 @@ class MouseCursor(activity: GameActivity, private val osc: Osc?) : Choreographer
     private val choreographer: Choreographer
     private val cursor: FixedSizeImageView
     private var prevMouseShown = -1
-    private val useChromeOsSystemCursor =
-        Build.VERSION.SDK_INT >= 24 && SDLActivity.isChromebook() // OPENMW_CHROMEOS_NATIVE_MOUSE_V1
 
     init {
         val height = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 30f,
@@ -85,15 +82,14 @@ class MouseCursor(activity: GameActivity, private val osc: Osc?) : Choreographer
 
         cursor = FixedSizeImageView(activity, width, height)
 
-        if (!useChromeOsSystemCursor) {
-            if (File(Constants.USER_FILE_STORAGE + "/icons/pointer_arrow.png").exists())
-                cursor.setImageBitmap(BitmapFactory.decodeFile(Constants.USER_FILE_STORAGE + "/icons/pointer_arrow.png"))
-            else
-                cursor.setImageResource(R.drawable.pointer_arrow)
+        if (File(Constants.USER_FILE_STORAGE + "/icons/pointer_arrow.png").exists())
+            cursor.setImageBitmap(BitmapFactory.decodeFile(Constants.USER_FILE_STORAGE + "/icons/pointer_arrow.png"))
+        else
+            cursor.setImageResource(R.drawable.pointer_arrow)
 
-            cursor.layoutParams = RelativeLayout.LayoutParams(width, height)
-            activity.layout.addView(cursor)
-        }
+        cursor.layoutParams = RelativeLayout.LayoutParams(width, height)
+
+        activity.layout.addView(cursor)
 
         choreographer = Choreographer.getInstance()
         choreographer.postFrameCallback(this)
@@ -108,14 +104,6 @@ class MouseCursor(activity: GameActivity, private val osc: Osc?) : Choreographer
                 osc.mouseVisible = mouseShown != 0
             }
             osc.showBasedOnState()
-        }
-
-        if (useChromeOsSystemCursor) {
-            // SDL_ShowCursor() / Android PointerIcon owns the visible ChromeOS cursor.
-            // Do not mirror SDL_GetMouseState() into an ImageView once per UI frame.
-            prevMouseShown = mouseShown
-            choreographer.postFrameCallback(this)
-            return
         }
 
         if (GameActivity.mouseMode == MouseMode.Touch || mouseShown == 0 || (osc != null && osc.keyboardVisible)) {

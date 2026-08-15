@@ -954,6 +954,7 @@ class MainActivity : AppCompatActivity() {
             "shaders/compatibility/terrain.frag",
             "shaders/compatibility/groundcover.vert",
             "shaders/compatibility/groundcover.frag",
+            "shaders/compatibility/water.vert",
             "shaders/compatibility/water.frag",
             "shaders/compatibility/bs/default.vert",
             "shaders/compatibility/bs/default.frag",
@@ -1203,14 +1204,22 @@ class MainActivity : AppCompatActivity() {
             throw IOException("OpenMW 0.51 Android OMWFX WetWorld/Puddle payload is invalid")
         }
 
+        val waterVertexText = File(
+            Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/water.vert"
+        ).readText()
         val waterShaderText = File(
             Constants.USER_FILE_STORAGE + "/resources/shaders/compatibility/water.frag"
         ).readText()
-        if (!waterShaderText.contains("OPENMW_ANDROID_051_WETWORLD_WATER_MASK") ||
+        if (!waterVertexText.contains("OPENMW_ANDROID_051_WATER_PROJECTIVE_SCREEN_COORDS") ||
+            !waterVertexText.contains("screenPosition = gl_Position;") ||
+            !waterShaderText.contains("OPENMW_ANDROID_051_WATER_PROJECTIVE_SCREEN_COORDS") ||
+            !waterShaderText.contains("(screenPosition.xy / screenPosition.w) * 0.5 + 0.5") ||
+            waterShaderText.contains("gl_FragCoord.xy / screenRes") ||
+            !waterShaderText.contains("OPENMW_ANDROID_051_WETWORLD_WATER_MASK") ||
             !waterShaderText.contains("#if @wetWorldWaterMask") ||
             !waterShaderText.contains("gl_FragData[0].a = 0.0;") ||
             !waterShaderText.contains("rainCombined(position.xy/1000.0, waterTimer)")) {
-            throw IOException("Runtime OpenMW 0.51 WetWorld water exclusion/ripple shader is missing")
+            throw IOException("Runtime OpenMW 0.51 Android water reflection/ripple shader is missing or stale")
         }
 
         val fullscreenText = File(

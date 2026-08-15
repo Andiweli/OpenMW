@@ -24,11 +24,17 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
+import android.os.Handler
+import android.os.Looper
 import android.preference.PreferenceManager
 import android.system.ErrnoException
 import android.system.Os
 import android.util.Log
 import android.view.WindowManager
+import android.view.PointerIcon
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
 import android.widget.RelativeLayout
 import com.libopenmw.openmw.BuildConfig
 import com.libopenmw.openmw.R
@@ -78,13 +84,26 @@ class GameActivity : SDLActivity() {
     @Volatile
     private var nativeLogBridgeRunning = false
 
-    // OPENMW_CHROMEOS_NATIVE_MOUSE_V1
-    // ChromeOS uses SDL's own relative-mouse / pointer-capture path. Do not install
-    // a second captured-pointer bridge or force the host cursor permanently hidden.
+    private val chromeOsPointerCaptureHandler = Handler(Looper.getMainLooper())
+    private var chromeOsPointerCaptureBridgeActive = false
+    private var chromeOsVirtualMouseX = 0.0f
+    private var chromeOsVirtualMouseY = 0.0f
+    private var chromeOsVirtualMouseValid = false
+    private var chromeOsLastMouseShown = -1
+    private var chromeOsCapturedEventSeen = false
+    private var chromeOsGameplayMouseResidualX = 0.0f
+    private var chromeOsGameplayMouseResidualY = 0.0f
 
-    // OPENMW_CHROMEOS_EXIT_NO_WHITE_V1
-    private val chromeOsExitHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private var chromeOsExitScheduled = false
+    private val chromeOsPointerCaptureWatchdog = object : Runnable {
+        override fun run() {
+            if (!chromeOsPointerCaptureBridgeActive) {
+                return
+            }
+
+            ensureChromeOsPointerCapture()
+            chromeOsPointerCaptureHandler.postDelayed(this, CHROMEOS_POINTER_CAPTURE_RETRY_MILLIS)
+        }
+    }
 
     val layout: RelativeLayout
         get() = SDLActivity.mLayout as RelativeLayout
@@ -238,6 +257,9 @@ class GameActivity : SDLActivity() {
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        setupChromeOsPointerCaptureBridge()
+        hideChromeOsSystemCursor()
+
         val displayInCutoutArea = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_display_cutout_area", false)
         if (displayInCutoutArea) {
             window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -252,6 +274,296 @@ class GameActivity : SDLActivity() {
             showProgressBar()
         else
             showControls()
+    }
+
+    private fun setupChromeOsPointerCaptureBridge() {
+        if (Build.VERSION.SDK_INT < 26 || !SDLActivity.isChromebook()) {
+            return
+        }
+
+        val surface = SDLActivity.getSurface() ?: run {
+            Log.w(DIAG_TAG, "ChromeOS pointer-capture bridge: SDL surface is not available.")
+            return
+        }
+
+        surface.isFocusable = true
+        surface.isFocusableInTouchMode = true
+        surface.requestFocus()
+
+        surface.setOnCapturedPointerListener { _, event ->
+            handleChromeOsCapturedPointerEvent(event)
+        }
+
+        chromeOsPointerCaptureBridgeActive = true
+        chromeOsPointerCaptureHandler.removeCallbacks(chromeOsPointerCaptureWatchdog)
+        chromeOsPointerCaptureHandler.post(chromeOsPointerCaptureWatchdog)
+
+        Log.i(
+            DIAG_TAG,
+            "ChromeOS pointer-capture bridge installed; menuCursorGain=$CHROMEOS_MENU_CURSOR_GAIN"
+        )
+    }
+
+    private fun ensureChromeOsPointerCapture() {
+        if (Build.VERSION.SDK_INT < 26 ||
+            !chromeOsPointerCaptureBridgeActive ||
+            !SDLActivity.isChromebook() ||
+            !hasWindowFocus()) {
+            return
+        }
+
+        val surface = SDLActivity.getSurface() ?: return
+        if (!surface.hasPointerCapture()) {
+            surface.requestFocus()
+            surface.requestPointerCapture()
+            Log.d(DIAG_TAG, "ChromeOS pointer capture requested.")
+        }
+    }
+
+    private fun handleChromeOsCapturedPointerEvent(event: MotionEvent): Boolean {
+        if (!chromeOsCapturedEventSeen) {
+            chromeOsCapturedEventSeen = true
+            Log.i(
+                DIAG_TAG,
+                "ChromeOS captured mouse input active; source=${event.source}; action=${event.actionMasked}"
+            )
+        }
+
+        val mouseShown = SDLActivity.isMouseShown()
+        val menuCursorMode = mouseShown != 0
+
+        if (menuCursorMode && (chromeOsLastMouseShown == 0 || !chromeOsVirtualMouseValid)) {
+            syncChromeOsVirtualMouseFromNative()
+        }
+
+        if (mouseShown != chromeOsLastMouseShown) {
+            // Do not carry fractional freelook motion across a GUI/gameplay mode switch.
+            chromeOsGameplayMouseResidualX = 0.0f
+            chromeOsGameplayMouseResidualY = 0.0f
+        }
+        chromeOsLastMouseShown = mouseShown
+
+        var action = event.actionMasked
+        when (action) {
+            MotionEvent.ACTION_SCROLL -> {
+                val x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, 0)
+                val y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, 0)
+                SDLActivity.onNativeMouse(0, action, x, y, false)
+                return true
+            }
+
+            MotionEvent.ACTION_HOVER_MOVE,
+            MotionEvent.ACTION_MOVE -> {
+                if (menuCursorMode) {
+                    // Captured MotionEvents may contain batched historical samples. Summing all
+                    // samples prevents ChromeOS movement from being lost before it reaches SDL.
+                    var deltaX = 0.0f
+                    var deltaY = 0.0f
+                    for (historyIndex in 0 until event.historySize) {
+                        deltaX += chromeOsCapturedDeltaX(event, historyIndex)
+                        deltaY += chromeOsCapturedDeltaY(event, historyIndex)
+                    }
+                    deltaX += chromeOsCapturedDeltaX(event, -1)
+                    deltaY += chromeOsCapturedDeltaY(event, -1)
+
+                    moveChromeOsVirtualMouse(deltaX, deltaY)
+                    SDLActivity.onNativeMouse(
+                        0,
+                        action,
+                        chromeOsVirtualMouseX,
+                        chromeOsVirtualMouseY,
+                        false
+                    )
+                } else {
+                    // SDL 2.0.22 converts Android relative mouse coordinates to integers.
+                    // Feed every batched sample through a fractional accumulator so sub-pixel
+                    // motion is preserved instead of being truncated on each event.
+                    for (historyIndex in 0 until event.historySize) {
+                        dispatchChromeOsGameplayMouseDelta(
+                            action,
+                            chromeOsCapturedDeltaX(event, historyIndex),
+                            chromeOsCapturedDeltaY(event, historyIndex)
+                        )
+                    }
+                    dispatchChromeOsGameplayMouseDelta(
+                        action,
+                        chromeOsCapturedDeltaX(event, -1),
+                        chromeOsCapturedDeltaY(event, -1)
+                    )
+                }
+                return true
+            }
+
+            MotionEvent.ACTION_BUTTON_PRESS,
+            MotionEvent.ACTION_BUTTON_RELEASE -> {
+                // Match SDL's own captured-pointer implementation. ACTION_DOWN/ACTION_UP may
+                // describe the same physical mouse click as these generic button events and
+                // forwarding both can feed the release that opened OpenMW's rebind dialog
+                // straight back into its binding detector as Mouse Left.
+                action = if (action == MotionEvent.ACTION_BUTTON_PRESS) {
+                    MotionEvent.ACTION_DOWN
+                } else {
+                    MotionEvent.ACTION_UP
+                }
+
+                val button = event.buttonState
+                if (menuCursorMode) {
+                    if (!chromeOsVirtualMouseValid) {
+                        syncChromeOsVirtualMouseFromNative()
+                    }
+                    SDLActivity.onNativeMouse(
+                        button,
+                        action,
+                        chromeOsVirtualMouseX,
+                        chromeOsVirtualMouseY,
+                        false
+                    )
+                } else {
+                    SDLActivity.onNativeMouse(button, action, 0.0f, 0.0f, true)
+                }
+                return true
+            }
+
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_UP -> {
+                // Captured mouse buttons are represented by ACTION_BUTTON_PRESS/RELEASE.
+                // Consume the touch-style duplicate stream instead of forwarding it twice.
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private fun chromeOsCapturedDeltaX(event: MotionEvent, historyIndex: Int): Float {
+        val relative = if (historyIndex >= 0) {
+            event.getHistoricalAxisValue(MotionEvent.AXIS_RELATIVE_X, 0, historyIndex)
+        } else {
+            event.getAxisValue(MotionEvent.AXIS_RELATIVE_X, 0)
+        }
+        if (relative != 0.0f) {
+            return relative
+        }
+
+        // Some ChromeOS/Android builds expose captured deltas through X/Y instead.
+        return if (historyIndex >= 0) event.getHistoricalX(0, historyIndex) else event.getX(0)
+    }
+
+    private fun chromeOsCapturedDeltaY(event: MotionEvent, historyIndex: Int): Float {
+        val relative = if (historyIndex >= 0) {
+            event.getHistoricalAxisValue(MotionEvent.AXIS_RELATIVE_Y, 0, historyIndex)
+        } else {
+            event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y, 0)
+        }
+        if (relative != 0.0f) {
+            return relative
+        }
+
+        // Some ChromeOS/Android builds expose captured deltas through X/Y instead.
+        return if (historyIndex >= 0) event.getHistoricalY(0, historyIndex) else event.getY(0)
+    }
+
+    private fun dispatchChromeOsGameplayMouseDelta(action: Int, deltaX: Float, deltaY: Float) {
+        chromeOsGameplayMouseResidualX += deltaX
+        chromeOsGameplayMouseResidualY += deltaY
+
+        val wholeX = chromeOsGameplayMouseResidualX.toInt()
+        val wholeY = chromeOsGameplayMouseResidualY.toInt()
+        chromeOsGameplayMouseResidualX -= wholeX.toFloat()
+        chromeOsGameplayMouseResidualY -= wholeY.toFloat()
+
+        if (wholeX != 0 || wholeY != 0) {
+            SDLActivity.onNativeMouse(0, action, wholeX.toFloat(), wholeY.toFloat(), true)
+        }
+    }
+
+    private fun syncChromeOsVirtualMouseFromNative() {
+        val bounds = chromeOsLogicalMouseBounds()
+        chromeOsVirtualMouseX = SDLActivity.getMouseX().toFloat()
+            .coerceIn(0.0f, bounds.first - 1.0f)
+        chromeOsVirtualMouseY = SDLActivity.getMouseY().toFloat()
+            .coerceIn(0.0f, bounds.second - 1.0f)
+        chromeOsVirtualMouseValid = true
+
+        Log.d(
+            DIAG_TAG,
+            "ChromeOS virtual cursor synced to ${chromeOsVirtualMouseX.toInt()}x${chromeOsVirtualMouseY.toInt()} " +
+                "within ${bounds.first.toInt()}x${bounds.second.toInt()}"
+        )
+    }
+
+    private fun moveChromeOsVirtualMouse(deltaX: Float, deltaY: Float) {
+        if (!chromeOsVirtualMouseValid) {
+            syncChromeOsVirtualMouseFromNative()
+        }
+
+        val surface = SDLActivity.getSurface()
+        val bounds = chromeOsLogicalMouseBounds()
+
+        val viewWidth = surface?.width?.takeIf { it > 0 }?.toFloat() ?: bounds.first
+        val viewHeight = surface?.height?.takeIf { it > 0 }?.toFloat() ?: bounds.second
+
+        // Captured deltas are physical View pixels. Convert them to the logical
+        // OpenMW render space so cursor speed stays correct with custom resolutions.
+        // Pointer capture does not inherit ChromeOS' normal desktop pointer acceleration,
+        // which makes the absolute OpenMW menu cursor feel noticeably slower than freelook.
+        // Apply a ChromeOS-only gain here. The relative gameplay/freelook path above remains
+        // completely unscaled.
+        val logicalDeltaX = deltaX * (bounds.first / viewWidth) * CHROMEOS_MENU_CURSOR_GAIN
+        val logicalDeltaY = deltaY * (bounds.second / viewHeight) * CHROMEOS_MENU_CURSOR_GAIN
+
+        chromeOsVirtualMouseX =
+            (chromeOsVirtualMouseX + logicalDeltaX).coerceIn(0.0f, bounds.first - 1.0f)
+        chromeOsVirtualMouseY =
+            (chromeOsVirtualMouseY + logicalDeltaY).coerceIn(0.0f, bounds.second - 1.0f)
+    }
+
+    private fun chromeOsLogicalMouseBounds(): Pair<Float, Float> {
+        val surface = SDLActivity.getSurface()
+
+        val width =
+            if (MainActivity.resolutionX > 0) MainActivity.resolutionX
+            else surface?.width?.takeIf { it > 0 } ?: 1
+
+        val height =
+            if (MainActivity.resolutionY > 0) MainActivity.resolutionY
+            else surface?.height?.takeIf { it > 0 } ?: 1
+
+        return Pair(width.coerceAtLeast(1).toFloat(), height.coerceAtLeast(1).toFloat())
+    }
+
+    private fun hideChromeOsSystemCursor() {
+        if (Build.VERSION.SDK_INT < 24 || !SDLActivity.isChromebook()) {
+            return
+        }
+
+        try {
+            val hiddenPointer =
+                PointerIcon.getSystemIcon(this, PointerIcon.TYPE_NULL)
+
+            // ChromeOS resolves the pointer icon against the View currently
+            // under the host pointer. SDL's SurfaceView is not necessarily the
+            // topmost View because MouseCursor/OSC can add overlays.
+            hidePointerRecursively(window.decorView, hiddenPointer)
+
+            SDLActivity.getContentView()?.let {
+                hidePointerRecursively(it, hiddenPointer)
+            }
+
+            SDLActivity.getSurface()?.pointerIcon = hiddenPointer
+        } catch (e: Exception) {
+            Log.w(DIAG_TAG, "Could not hide ChromeOS system mouse cursor.", e)
+        }
+    }
+
+    private fun hidePointerRecursively(view: View, pointerIcon: PointerIcon) {
+        view.pointerIcon = pointerIcon
+
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                hidePointerRecursively(view.getChildAt(index), pointerIcon)
+            }
+        }
     }
 
     private fun prepareNativeDiagnostics() {
@@ -300,7 +612,6 @@ class GameActivity : SDLActivity() {
         Log.i(DIAG_TAG, "device=${Build.MANUFACTURER} ${Build.MODEL}; sdk=${Build.VERSION.SDK_INT}; abis=${Build.SUPPORTED_ABIS.joinToString()}")
         Log.i(DIAG_TAG, "customResolution=${MainActivity.resolutionX}x${MainActivity.resolutionY}; surfaceView=${SDLActivity.getSurface()?.width}x${SDLActivity.getSurface()?.height}")
         Log.i(DIAG_TAG, "chromebook=${SDLActivity.isChromebook()}; relativeMouseSupported=${SDLActivity.supportsRelativeMouse()}")
-        Log.i(DIAG_TAG, "mousePath=${if (SDLActivity.isChromebook()) "SDL native capture + system cursor" else "legacy Android cursor"}")
         Log.i(DIAG_TAG, "graphicsLibrary=${if (graphicsLibrary.isBlank()) "<default/GLES2>" else graphicsLibrary}; shaderDirectory=${if (shaderDirectory.isBlank()) "<default>" else shaderDirectory}")
         Log.i(DIAG_TAG, "OPENMW_GLES_VERSION=${Os.getenv("OPENMW_GLES_VERSION")}; LIBGL_ES=${Os.getenv("LIBGL_ES")}; OPENMW_USER_FILE_STORAGE=${Os.getenv("OPENMW_USER_FILE_STORAGE")}")
         Log.i(DIAG_TAG, "USER_FILE_STORAGE=${Constants.USER_FILE_STORAGE}")
@@ -440,50 +751,10 @@ class GameActivity : SDLActivity() {
             osc.placeElements(layout)
         }
         MouseCursor(this, osc)
-    }
 
-    private fun installChromeOsExitCover() {
-        val decor = window.decorView as? android.view.ViewGroup ?: return
-        val cover = android.view.View(this)
-        cover.setBackgroundColor(android.graphics.Color.BLACK)
-        cover.isClickable = true
-        cover.isFocusable = true
-        decor.addView(
-            cover,
-            android.view.ViewGroup.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
-        cover.bringToFront()
-    }
-
-    private fun finishAfterChromeOsExitDelay() {
-        super.finish()
-    }
-
-    override fun finish() {
-        if (Build.VERSION.SDK_INT >= 26 &&
-            SDLActivity.isChromebook() &&
-            !chromeOsExitScheduled &&
-            !isFinishing) {
-            chromeOsExitScheduled = true
-
-            runOnUiThread {
-                // OPENMW_CHROMEOS_EXIT_NO_WHITE_V1
-                // Cover the final GL frame, put the task behind the ChromeOS desktop
-                // immediately, then close the now-invisible Activity shortly afterwards.
-                installChromeOsExitCover()
-                moveTaskToBack(true)
-                chromeOsExitHandler.postDelayed(
-                    { finishAfterChromeOsExitDelay() },
-                    CHROMEOS_EXIT_FINISH_DELAY_MILLIS
-                )
-            }
-            return
-        }
-
-        super.finish()
+        // MouseCursor and optional OSC controls are created after SDLActivity's
+        // initial View setup, so reapply the hidden host pointer afterwards.
+        hideChromeOsSystemCursor()
     }
 
     private fun KeepScreenOn() {
@@ -495,19 +766,8 @@ class GameActivity : SDLActivity() {
 
     public override fun onDestroy() {
         nativeLogBridgeRunning = false
-
-        if (Build.VERSION.SDK_INT >= 26 && SDLActivity.isChromebook()) {
-            chromeOsExitHandler.removeCallbacksAndMessages(null)
-
-            // Let SDLActivity release native state after the task has already been
-            // moved behind the desktop. Kill the shared launcher/game process only
-            // after the Android/SDL teardown path has completed.
-            super.onDestroy()
-            Process.killProcess(Process.myPid())
-            return
-        }
-
-        // Preserve the existing Android behavior outside ChromeOS.
+        chromeOsPointerCaptureBridgeActive = false
+        chromeOsPointerCaptureHandler.removeCallbacks(chromeOsPointerCaptureWatchdog)
         finish()
         Process.killProcess(Process.myPid())
         super.onDestroy()
@@ -521,6 +781,8 @@ class GameActivity : SDLActivity() {
 
         if (hasFocus) {
             hideAndroidControls(this)
+            hideChromeOsSystemCursor()
+            ensureChromeOsPointerCapture()
         }
     }
 
@@ -576,7 +838,8 @@ class GameActivity : SDLActivity() {
         private const val NATIVE_LOG_TAG = "OpenMW-Native"
         private const val MAX_CONFIG_LOG_LINES = 120
         private const val NATIVE_LOG_BRIDGE_MILLIS = 120_000L
-        private const val CHROMEOS_EXIT_FINISH_DELAY_MILLIS = 50L
+        private const val CHROMEOS_POINTER_CAPTURE_RETRY_MILLIS = 250L
+        private const val CHROMEOS_MENU_CURSOR_GAIN = 1.6f
 
         var mouseMode = MouseMode.Hybrid
     }

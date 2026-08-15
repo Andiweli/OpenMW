@@ -705,10 +705,6 @@ class SDLGenericMotionListener_API26 extends SDLGenericMotionListener_API24 {
                     case MotionEvent.ACTION_HOVER_MOVE:
                         x = event.getX(0);
                         y = event.getY(0);
-                        if (SDLActivity.isChromebook()) {
-                            x = SDLActivity.scaleAbsoluteMouseX(x);
-                            y = SDLActivity.scaleAbsoluteMouseY(y);
-                        }
                         SDLActivity.onNativeMouse(0, action, x, y, false);
                         return true;
 
@@ -755,36 +751,15 @@ class SDLGenericMotionListener_API26 extends SDLGenericMotionListener_API24 {
         return mRelativeModeEnabled;
     }
 
-    private View getRelativeMouseCaptureView() {
-        // OPENMW_CHROMEOS_NATIVE_MOUSE_V1
-        // On ChromeOS capture the focused SDLSurface itself so its existing
-        // onCapturedPointerEvent() receives the raw relative stream directly.
-        if (SDLActivity.isChromebook() && SDLActivity.getSurface() != null) {
-            return SDLActivity.getSurface();
-        }
-        return SDLActivity.getContentView();
-    }
-
     @Override
     public boolean setRelativeMouseEnabled(boolean enabled) {
         if (!SDLActivity.isDeXMode() || (Build.VERSION.SDK_INT >= 27)) {
-            View captureView = getRelativeMouseCaptureView();
-            if (captureView == null) {
-                return false;
-            }
-
             if (enabled) {
-                captureView.requestFocus();
-                captureView.requestPointerCapture();
+                SDLActivity.getContentView().requestPointerCapture();
             } else {
-                captureView.releasePointerCapture();
+                SDLActivity.getContentView().releasePointerCapture();
             }
-
             mRelativeModeEnabled = enabled;
-            if (SDLActivity.isChromebook()) {
-                Log.i("SDLControllerManager", "ChromeOS native mouse v1: relative=" + enabled
-                        + ", captureView=" + captureView.getClass().getSimpleName());
-            }
             return true;
         } else {
             return false;
@@ -795,11 +770,7 @@ class SDLGenericMotionListener_API26 extends SDLGenericMotionListener_API24 {
     public void reclaimRelativeMouseModeIfNeeded()
     {
         if (mRelativeModeEnabled && !SDLActivity.isDeXMode()) {
-            View captureView = getRelativeMouseCaptureView();
-            if (captureView != null) {
-                captureView.requestFocus();
-                captureView.requestPointerCapture();
-            }
+            SDLActivity.getContentView().requestPointerCapture();
         }
     }
 

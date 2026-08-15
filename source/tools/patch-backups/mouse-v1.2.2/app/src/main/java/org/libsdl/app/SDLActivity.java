@@ -1783,11 +1783,11 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     // OPENMW_CHROMEOS_GAMEPLAY_MOUSE_V11
     // OPENMW_CHROMEOS_GAMEPLAY_MOUSE_V12_ACCEL
     // Pointer capture bypasses ChromeOS pointer ballistics. Keep the proven v1.1
-    // 2.0x low-speed gain exactly intact, then add only a very gentle speed-dependent
+    // 2.0x low-speed gain exactly intact, then add only a gentle speed-dependent
     // boost for larger raw samples. X/Y share one gain so direction is preserved.
     private static final float CHROMEOS_GAMEPLAY_MOUSE_GAIN_BASE = 2.0f;
-    private static final float CHROMEOS_GAMEPLAY_MOUSE_GAIN_MID = 2.2f;
-    private static final float CHROMEOS_GAMEPLAY_MOUSE_GAIN_MAX = 2.5f;
+    private static final float CHROMEOS_GAMEPLAY_MOUSE_GAIN_MID = 2.4f;
+    private static final float CHROMEOS_GAMEPLAY_MOUSE_GAIN_MAX = 3.0f;
     private static final float CHROMEOS_GAMEPLAY_MOUSE_ACCEL_START = 2.0f;
     private static final float CHROMEOS_GAMEPLAY_MOUSE_ACCEL_MID = 8.0f;
     private static final float CHROMEOS_GAMEPLAY_MOUSE_ACCEL_FULL = 24.0f;

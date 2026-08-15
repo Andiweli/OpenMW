@@ -35,6 +35,7 @@ def requiredOpenMwPayload = [
         file('src/main/assets/libopenmw/resources/shaders/compatibility/fullscreen_tri.vert'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/shadowcasting.vert'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/shadows_fragment.glsl'),
+        file('src/main/assets/libopenmw/resources/shaders/compatibility/water.vert'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/water.frag'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/debug.vert'),
         file('src/main/assets/libopenmw/resources/shaders/compatibility/debug.frag'),
@@ -419,14 +420,21 @@ tasks.register('verifyOpenMwPayload') {
             )
         }
 
+        def finalWaterVertex = file('src/main/assets/libopenmw/resources/shaders/compatibility/water.vert')
+                .getText('UTF-8')
         def finalWaterShader = file('src/main/assets/libopenmw/resources/shaders/compatibility/water.frag')
                 .getText('UTF-8')
-        if (!finalWaterShader.contains('OPENMW_ANDROID_051_WETWORLD_WATER_MASK') ||
+        if (!finalWaterVertex.contains('OPENMW_ANDROID_051_WATER_PROJECTIVE_SCREEN_COORDS') ||
+                !finalWaterVertex.contains('screenPosition = gl_Position;') ||
+                !finalWaterShader.contains('OPENMW_ANDROID_051_WATER_PROJECTIVE_SCREEN_COORDS') ||
+                !finalWaterShader.contains('(screenPosition.xy / screenPosition.w) * 0.5 + 0.5') ||
+                finalWaterShader.contains('gl_FragCoord.xy / screenRes') ||
+                !finalWaterShader.contains('OPENMW_ANDROID_051_WETWORLD_WATER_MASK') ||
                 !finalWaterShader.contains('#if @wetWorldWaterMask') ||
                 !finalWaterShader.contains('gl_FragData[0].a = 0.0;') ||
                 !finalWaterShader.contains('rainCombined(position.xy/1000.0, waterTimer)')) {
             throw new GradleException(
-                    'OpenMW 0.51 Android requires exact WetWorld water exclusion while retaining native rain ripples.'
+                    'OpenMW 0.51 Android requires resolution-independent water reflection UVs plus exact WetWorld water exclusion.'
             )
         }
 
