@@ -729,7 +729,6 @@ class MainActivity : AppCompatActivity() {
                 !debugVert.readText().contains("uniform bool useAdvancedShader =") &&
                 !debugFrag.readText().contains("uniform bool useAdvancedShader =") &&
                 objectsFragmentText.contains("OPENMW_ANDROID_051_GL4ES_EXPLICIT_OBJECT_FOG") &&
-                objectsFragmentText.contains("OPENMW_ANDROID_051_LOCALMAP_OBJECT_FOG_BYPASS_V1") &&
                 // Patch 8 ports only the proven OpenMW-0.50 Android/GL4ES
                 // normal-transform compatibility substitutions. Avoid direct
                 // gl_NormalMatrix * passNormal in these 0.51 shader stages.
@@ -1315,12 +1314,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (!objectsFragmentText.contains("OPENMW_ANDROID_051_GL4ES_EXPLICIT_OBJECT_FOG") ||
-            !objectsFragmentText.contains("OPENMW_ANDROID_051_LOCALMAP_OBJECT_FOG_BYPASS_V1") ||
             !fogShaderText.contains("OPENMW_ANDROID_051_GL4ES_EXPLICIT_OBJECT_FOG") ||
             !fogShaderText.contains("uniform vec4 omwFogColor") ||
             !fogShaderText.contains("uniform float omwFogStart") ||
             !fogShaderText.contains("uniform float omwFogEnd")) {
-            throw IOException("Runtime OpenMW 0.51 Android explicit GL4ES object-fog/LocalMap shaders are missing")
+            throw IOException("Runtime OpenMW 0.51 Android explicit GL4ES object-fog shaders are missing")
         }
 
         if (!objectsFragmentText.contains("OPENMW_ANDROID_051_GL4ES_DISABLE_ADDITIVE_FOG") ||
@@ -1604,8 +1602,7 @@ class MainActivity : AppCompatActivity() {
             settingsFile,
             "Post Processing",
             linkedMapOf(
-                // OPENMW_ANDROID_051_POSTPROCESSING_PRESERVE_ENABLED_V1
-                // enabled is owned by preset transitions/F2, not every launch.
+                "enabled" to "true",
                 "chain" to postProcessingChain,
                 "transparent postpass" to if (omwfxSelected) "true" else if (
                     prefs.getBoolean("gs_transparent_postpass", false)
@@ -1619,7 +1616,7 @@ class MainActivity : AppCompatActivity() {
         Log.i(
             TAG,
             "OpenMW 0.51 Android release runtime: shadows=launcher-controlled, " +
-                "postProcessing=preset/F2-controlled, transparentPostpass=${if (omwfxSelected) "forced-on" else "launcher"}, " +
+                "postProcessing=true, transparentPostpass=${if (omwfxSelected) "forced-on" else "launcher"}, " +
                 "chain=$postProcessingChain, omwfx=${if (omwfxSelected) "enabled" else "off"}"
         )
     }
@@ -1850,9 +1847,8 @@ class MainActivity : AppCompatActivity() {
      * OMWFX is different: it uses the original core shaders plus OpenMW's
      * post-processing pipeline.
      *
-     * Only change the Post Processing enabled state when the launcher preset
-     * actually changes. Normal relaunches preserve the F2/user enabled choice;
-     * launcher-owned chain/transparent-postpass values remain runtime-managed.
+     * Only touch the user's post-processing section when the launcher preset
+     * actually changes. This lets F2 edits survive normal relaunches.
      */
     private fun applyShaderPresetSettings() {
         val selected = prefs.getString("pref_shadersDir_v2", "none") ?: "none"
@@ -2013,10 +2009,6 @@ class MainActivity : AppCompatActivity() {
                 // Android-relevant controller/Groundcover additions from 0.51.
                 // The older SharedPreferences keys intentionally remain stable.
                 applyOpenMw051LauncherSettings()
-
-                // Apply OMWFX enable/disable only when the launcher preset actually
-                // changes. Normal relaunches must preserve the F2/user choice.
-                applyShaderPresetSettings()
 
                 // Android shadows remain launcher-controlled. OMWFX forces the
                 // transparent postpass for WetWorld and the optical stack.
