@@ -52,6 +52,16 @@ The bundled preset adds a more modern visual presentation while remaining option
 
 You need your own legally obtained **The Elder Scrolls III: Morrowind** game data. Bethesda game files are **not included** in this repository.
 
+## ❤️ Support
+
+If you enjoy this project and would like to support my work, you can make a small contribution via PayPal.
+
+Your support helps me spend more time maintaining existing projects, fixing bugs, improving compatibility, and working on new features.
+
+[![Support via PayPal](https://img.shields.io/badge/Support%20via-PayPal-0070BA?logo=paypal\&logoColor=white)](https://paypal.me/andiweli)
+
+Thank you for your support!
+
 ## 📜 Credits & Disclaimer
 
 OpenMW is an independent open-source reimplementation of the Morrowind engine. This Android/ChromeOS project builds upon the work of the **OpenMW**, **CaveBros** and **OMWFX shader** contributors.
