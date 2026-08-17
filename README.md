@@ -8,7 +8,7 @@
 ![Architecture](https://img.shields.io/badge/architecture-64bit-orange.svg)
 ![ChromeOS](https://img.shields.io/badge/ChromeOS-Supported-4285F4?logo=googlechrome&logoColor=white)
 ![AI Assisted Coding](https://img.shields.io/badge/AI-Assisted%20Coding-white)
-![Controller](https://img.shields.io/badge/Controls-Controller/Touch/Keyboard-blueviolet)
+![Controller](https://img.shields.io/badge/Controls-Joypad/Touch/Keyb-blueviolet)
 
 </div>
 
