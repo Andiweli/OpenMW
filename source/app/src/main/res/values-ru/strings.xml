@@ -113,7 +113,7 @@
     <string name="user_configuration">Конфигурация пользователя</string>
     <string name="action_theme_submenu">Тема ›</string>
     <string name="theme_set_to">Установлена тема %1$s</string>
-    <string name="about_port_info">Этот порт подготовил Andreas «Andiweli» Stürmer\nНа основе порта CaveBros\nOpenMW разрабатывается командой OpenMW с 2008 года</string>
+    <string name="about_port_info">Этот порт подготовил Andreas \'Andiweli\' Stürmer\nНа основе порта CaveBros\nOpenMW разрабатывается командой OpenMW с 2008 года</string>
     <string name="third_party_notices">Сведения о сторонних компонентах</string>
     <string name="chooser_select">Выбрать</string>
     <string name="chooser_create">Создать</string>

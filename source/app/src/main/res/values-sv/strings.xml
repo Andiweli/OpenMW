@@ -113,7 +113,7 @@
     <string name="user_configuration">Användarkonfiguration</string>
     <string name="action_theme_submenu">Tema ›</string>
     <string name="theme_set_to">Tema inställt på %1$s</string>
-    <string name="about_port_info">Den här portningen är gjord av Andreas ”Andiweli” Stürmer\nBaserad på en portning av CaveBros\nOpenMW av OpenMW-teamet sedan 2008</string>
+    <string name="about_port_info">Den här portningen är gjord av Andreas \'Andiweli\' Stürmer\nBaserad på en portning av CaveBros\nOpenMW av OpenMW-teamet sedan 2008</string>
     <string name="third_party_notices">Information om tredjepartskomponenter</string>
     <string name="chooser_select">Välj</string>
     <string name="chooser_create">Skapa</string>

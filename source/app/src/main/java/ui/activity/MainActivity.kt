@@ -2042,6 +2042,32 @@ class MainActivity : AppCompatActivity() {
                     displayHeight = if(resolutionY == 0) dm.heightPixels else resolutionY
                 }
                
+                // OPENMW_ANDROID_051_SYNC_LAUNCHER_RESOLUTION_TO_SETTINGS
+                // defaults.bin provides Android defaults, but an existing user
+                // settings.cfg has higher precedence. ChromeOS can therefore retain
+                // a previously persisted physical display size (for example
+                // 1920x1080) even when the launcher requests 640x360.
+                //
+                // Keep OpenMW's real [Video] settings synchronized with the
+                // launcher-selected logical render size on every game start.
+                // If no custom resolution is selected, displayWidth/displayHeight
+                // already contain the physical/native size, so stale custom values
+                // are also cleared correctly.
+                updateSettingsSection(
+                    File(Constants.USER_CONFIG, "settings.cfg"),
+                    "Video",
+                    linkedMapOf(
+                        "resolution x" to displayWidth.toString(),
+                        "resolution y" to displayHeight.toString()
+                    )
+                )
+
+                Log.i(
+                    TAG,
+                    "OpenMW Android launcher resolution synced to settings.cfg: " +
+                        "${displayWidth}x${displayHeight}"
+                )
+
                 configureDefaultsBin(mapOf(
                         "scaling factor" to "%.2f".format(Locale.ROOT, scaling),
                         // android-specific defaults

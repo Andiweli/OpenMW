@@ -19,6 +19,10 @@ $PatchDir = Join-Path $ProjectRoot 'buildscripts\patches\openmw051-final'
 $FormatPatcher = Join-Path $PatchDir 'apply-ndk-r26-format.py'
 $RuntimePatcher = Join-Path $PatchDir 'apply-android-runtime-baseline.py'
 $Gl4esCorePatcher = Join-Path $PatchDir 'apply-android-gl4es-core-inline.py'
+$GraphicsFollowupPatcher = Join-Path $PatchDir 'apply-android-graphics-followup.py'
+$GraphicsFollowup2Patcher = Join-Path $PatchDir 'apply-android-graphics-followup2.py'
+$GraphicsFollowup3Patcher = Join-Path $PatchDir 'apply-android-graphics-followup3.py'
+$GraphicsFollowup4Patcher = Join-Path $PatchDir 'apply-android-graphics-followup4.py'
 
 foreach ($Required in @(
     $CMakeFile,
@@ -27,7 +31,11 @@ foreach ($Required in @(
     (Join-Path $PatchDir '0002-static-osg-link.patch'),
     $FormatPatcher,
     $RuntimePatcher,
-    $Gl4esCorePatcher
+    $Gl4esCorePatcher,
+    $GraphicsFollowupPatcher,
+    $GraphicsFollowup2Patcher,
+    $GraphicsFollowup3Patcher,
+    $GraphicsFollowup4Patcher
 )) {
     if (-not (Test-Path $Required)) {
         throw "Missing OpenMW 0.51 runtime migration file: $Required"
@@ -79,7 +87,11 @@ set(OPENMW_PATCH
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/openmw051-final/0002-static-osg-link.patch &&
         python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-ndk-r26-format.py <SOURCE_DIR> &&
         python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-runtime-baseline.py <SOURCE_DIR> &&
-        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-gl4es-core-inline.py <SOURCE_DIR>
+        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-gl4es-core-inline.py <SOURCE_DIR> &&
+        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-graphics-followup.py <SOURCE_DIR> &&
+        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-graphics-followup2.py <SOURCE_DIR> &&
+        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-graphics-followup3.py <SOURCE_DIR> &&
+        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-graphics-followup4.py <SOURCE_DIR>
 )
 '@
 
@@ -108,9 +120,15 @@ if (Test-Path $OpenMwPrefix) {
     if (Test-Path $AndroidMainMarker) {
         $HasPatch2 = (Read-Lf $AndroidMainMarker).Contains('OPENMW_ANDROID_051_RUNTIME_BASELINE')
     }
-    if (-not $HasPatch2) {
+    $GraphicsMarkerFile = Join-Path $OpenMwPrefix 'src\openmw\apps\openmw\mwgui\windowmanagerimp.cpp'
+    $HasGraphicsFollowup = $false
+    if (Test-Path $GraphicsMarkerFile) {
+        $HasGraphicsFollowup = (Read-Lf $GraphicsMarkerFile).Contains('OPENMW_ANDROID_051_LOGICAL_RENDER_RESOLUTION')
+    }
+
+    if (-not $HasPatch2 -or -not $HasGraphicsFollowup) {
         Remove-Item $OpenMwPrefix -Recurse -Force
-        Write-Host 'OpenMW 0.51 runtime: removed Patch-1 OpenMW tree so Patch 2 is applied cleanly.' -ForegroundColor Yellow
+        Write-Host 'OpenMW 0.51 runtime: removed stale OpenMW tree so all current native patches are applied cleanly.' -ForegroundColor Yellow
     }
 }
 
@@ -121,7 +139,11 @@ foreach ($Token in @(
     'patches/openmw051-final/0002-static-osg-link.patch',
     'patches/openmw051-final/apply-ndk-r26-format.py',
     'patches/openmw051-final/apply-android-runtime-baseline.py',
-    'patches/openmw051-final/apply-android-gl4es-core-inline.py'
+    'patches/openmw051-final/apply-android-gl4es-core-inline.py',
+    'patches/openmw051-final/apply-android-graphics-followup.py',
+    'patches/openmw051-final/apply-android-graphics-followup2.py',
+    'patches/openmw051-final/apply-android-graphics-followup3.py',
+    'patches/openmw051-final/apply-android-graphics-followup4.py'
 )) {
     if (-not $Verify.Contains($Token)) {
         throw "OpenMW 0.51 runtime setup verification failed: missing $Token"

@@ -1921,7 +1921,28 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
         Log.v("SDL", "Window size: " + width + "x" + height);
         Log.v("SDL", "Device size: " + nDeviceWidth + "x" + nDeviceHeight);
-        SDLActivity.nativeSetScreenResolution(width, height, nDeviceWidth, nDeviceHeight, mDisplay.getRefreshRate());
+
+        // OPENMW_CHROMEOS_CUSTOM_RESOLUTION_V1
+        // ARC/ChromeOS may resize the Android SurfaceView back to the physical
+        // display size even though OpenMW-Android requested a fixed custom
+        // rendering size through SurfaceHolder.setFixedSize().  Keep the real
+        // device dimensions for SDL's display information, but preserve the
+        // launcher-selected logical window size passed to native SDL/OpenMW.
+        //
+        // Normal Android devices retain the original path unchanged.
+        int nWindowWidth = width;
+        int nWindowHeight = height;
+        if (SDLActivity.isChromebook() && fixedWidth > 0 && fixedHeight > 0) {
+            nWindowWidth = fixedWidth;
+            nWindowHeight = fixedHeight;
+        }
+
+        SDLActivity.nativeSetScreenResolution(
+                nWindowWidth,
+                nWindowHeight,
+                nDeviceWidth,
+                nDeviceHeight,
+                mDisplay.getRefreshRate());
         SDLActivity.onNativeResize();
 
         // Prevent a screen distortion glitch,

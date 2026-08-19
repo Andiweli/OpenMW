@@ -266,7 +266,7 @@
     <string name="user_configuration">User Configuration</string>
     <string name="action_theme_submenu">Theme ›</string>
     <string name="theme_set_to">Theme set to %1$s</string>
-    <string name="about_port_info">This port by Andreas "Andiweli" Stürmer
+    <string name="about_port_info">This port by Andreas \'Andiweli\' Stürmer
 Based on a port by CaveBros
 OpenMW by the OpenMW Team since 2008</string>
     <string name="third_party_notices">Third-party notices</string>

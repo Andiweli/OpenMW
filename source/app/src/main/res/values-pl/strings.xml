@@ -113,7 +113,7 @@
     <string name="user_configuration">Konfiguracja użytkownika</string>
     <string name="action_theme_submenu">Motyw ›</string>
     <string name="theme_set_to">Ustawiono motyw %1$s</string>
-    <string name="about_port_info">Ten port przygotował Andreas „Andiweli” Stürmer\nNa podstawie portu CaveBros\nOpenMW rozwijane przez zespół OpenMW od 2008 roku</string>
+    <string name="about_port_info">Ten port przygotował Andreas \'Andiweli\' Stürmer\nNa podstawie portu CaveBros\nOpenMW rozwijane przez zespół OpenMW od 2008 roku</string>
     <string name="third_party_notices">Informacje o komponentach firm trzecich</string>
     <string name="chooser_select">Wybierz</string>
     <string name="chooser_create">Utwórz</string>

@@ -113,7 +113,7 @@
     <string name="user_configuration">Benutzerkonfiguration</string>
     <string name="action_theme_submenu">Design ›</string>
     <string name="theme_set_to">Design auf %1$s gesetzt</string>
-    <string name="about_port_info">Dieser Port von Andreas „Andiweli“ Stürmer\nBasierend auf einem Port von CaveBros\nOpenMW vom OpenMW-Team seit 2008</string>
+    <string name="about_port_info">Dieser Port von Andreas \'Andiweli\' Stürmer\nBasierend auf einem Port von CaveBros\nOpenMW vom OpenMW-Team seit 2008</string>
     <string name="third_party_notices">Hinweise zu Drittanbieterkomponenten</string>
     <string name="chooser_select">Auswählen</string>
     <string name="chooser_create">Erstellen</string>
