@@ -8,7 +8,7 @@
 ![Architecture](https://img.shields.io/badge/architecture-64bit-orange.svg)
 ![ChromeOS](https://img.shields.io/badge/ChromeOS-Supported-4285F4?logo=googlechrome&logoColor=white)
 ![AI Assisted Coding](https://img.shields.io/badge/AI-Assisted%20Coding-white)
-![Controller](https://img.shields.io/badge/Controls-Controller/Touch/Keyboard-blueviolet)
+![Controller](https://img.shields.io/badge/Controls-Joypad/Touch/Keyb-blueviolet)
 
 </div>
 
@@ -51,6 +51,16 @@ The bundled preset adds a more modern visual presentation while remaining option
 ## 📦 Requirements
 
 You need your own legally obtained **The Elder Scrolls III: Morrowind** game data. Bethesda game files are **not included** in this repository.
+
+## ❤️ Support
+
+If you enjoy this project and would like to support my work, you can make a small contribution via PayPal.
+
+Your support helps me spend more time maintaining existing projects, fixing bugs, improving compatibility, and working on new features.
+
+[![Support via PayPal](https://img.shields.io/badge/Support%20via-PayPal-0070BA?logo=paypal\&logoColor=white)](https://paypal.me/andiweli)
+
+Thank you for your support!
 
 ## 📜 Credits & Disclaimer
 
